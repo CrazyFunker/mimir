@@ -52,6 +52,7 @@ async function internalFetch<T>(endpoint: string, options: FetchOptions = {}): P
           'Content-Type': 'application/json',
           ...(rest.headers || {}),
         },
+        cache: rest.cache || 'no-store',
         ...rest,
       })
       const text = await response.text()
@@ -188,11 +189,25 @@ export async function getHealth() {
   }
   try {
     const res = await internalFetch<{ status: string; version?: string }>('/api/health', { retry: 0 })
-    // Only reset if backend is reachable and not mock override
+    if (!res || typeof (res as any).status !== 'string') {
+      console.warn('[api] Health schema unexpected:', res)
+      return { status: 'unreachable' }
+    }
+    console.debug('[api] health ok', res)
     resetAutoMockIfNeeded()
     return res
   } catch (e) {
-    // Do not immediately activate fallback solely on health; leave that to functional calls.
+    // Quick second attempt after 1s (helps during just-up restarts) – fire and return first failure immediately
+    setTimeout(async () => {
+      try {
+        const second = await internalFetch<{ status: string; version?: string }>('/api/health', { retry: 0 })
+        if (second && typeof (second as any).status === 'string') {
+          console.info('[api] health recovered on second attempt', second)
+        }
+      } catch (e2) {
+        // suppress
+      }
+    }, 1000)
     return { status: 'unreachable' }
   }
 }
