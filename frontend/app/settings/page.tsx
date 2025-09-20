@@ -1,41 +1,4 @@
-'use client'
-
-import React, { useState } from 'react'
-import { ConnectorCard } from '@/components/connector-card'
-
-export default function SettingsPage() {
-  const [connectors, setConnectors] = useState([
-    { kind: 'Jira/Confluence', status: 'disconnected' as const },
-    { kind: 'GMail', status: 'ok' as const },
-    { kind: 'GitHub', status: 'error' as const },
-  ])
-
-  const [testingAll, setTestingAll] = useState(false)
-
-  const handleConnect = (kind: string) => {
-    console.log('Connect:', kind)
-  }
-
-  const handleTest = (kind: string) => {
-    console.log('Test:', kind)
-  }
-
-  const handleRetry = (kind: string) => {
-    console.log('Retry:', kind)
-  }
-
-  const handleTestAll = () => {
-    setTestingAll(true)
-    console.log('Testing all MCP connections...')
-    
-    // Simulate testing
-    setTimeout(() => {
-      setTestingAll(false)
-    }, 3000)
-  }
-
-  return (
-    'use client'
+"use client"
 
 import React, { useState } from 'react'
 import { ConnectorCard } from '@/components/connector-card'
@@ -43,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Connector } from '@/lib/types'
 
 // Mock connector data
+// Temporary mock data until backend integration
 const mockConnectors: Connector[] = [
   {
     id: '1',
@@ -205,7 +169,5 @@ export default function SettingsPage() {
         </Button>
       </div>
     </div>
-  )
-}
   )
 }
