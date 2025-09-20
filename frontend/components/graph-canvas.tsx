@@ -25,6 +25,7 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
+  const [hoveredHorizon, setHoveredHorizon] = useState<string | null>(null)
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([])
   
   // Generate mock positions for nodes (in a real app, this would be calculated based on dates/relationships)
@@ -72,6 +73,16 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
     return 'none'
   }
 
+  // Determine opacity based on horizon and hover state
+  const getNodeOpacity = (task: Task) => {
+    const horizon = task.horizon
+    // TODAY nodes always fully opaque unless another horizon hover rule overrides? Requirement: TODAY default opaque, others semi.
+    const baseOpacity = horizon === 'today' ? 1 : 0.35
+    if (!hoveredHorizon) return baseOpacity
+    // When a horizon is hovered, that horizon becomes fully opaque, others dimmed
+    return horizon === hoveredHorizon ? 1 : 0.15
+  }
+
   if (nodes.length === 0) {
     return (
       <div className="w-full h-96 border rounded-lg bg-gray-50 flex items-center justify-center">
@@ -116,23 +127,26 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
 
         {/* Horizon labels centered between lines */}
         {[
-          { y: 60, label: 'Past 7 Days' }, // between top and 120
-          { y: 160, label: 'Today' },      // between 120 and 200
-          { y: 240, label: 'This Week' },  // between 200 and 280
-          { y: 332, label: 'This Month' }  // between 280 and bottom (~384)
-        ].map(({ y, label }) => (
-          <text
-            key={label}
-            x="10"
-            y={y}
-            fill="#9ca3af"
-            fontSize="10"
-            fontWeight="medium"
-            className="uppercase tracking-wider"
-          >
-            {label}
-          </text>
-        ))}
+          { y: 60, label: 'Past 7 Days', key: 'past7d' },
+          { y: 160, label: 'Today', key: 'today' },
+          { y: 240, label: 'This Week', key: 'week' },
+          { y: 332, label: 'This Month', key: 'month' }
+        ].map(({ y, label, key }) => {
+          const focused = hoveredHorizon ? hoveredHorizon === key : key === 'today'
+          return (
+            <text
+              key={label}
+              x="10"
+              y={y}
+              fill={focused ? '#374151' : '#9ca3af'}
+              fontSize="10"
+              fontWeight={focused ? 'bold' : 'medium'}
+              className="uppercase tracking-wider transition-colors duration-150"
+            >
+              {label}
+            </text>
+          )
+        })}
         
         {/* Render edges */}
         {edges.map(([fromId, toId], index) => {
@@ -166,9 +180,16 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
               fill={getNodeFill(node.task)}
               stroke={getNodeStroke(node.task)}
               strokeWidth={selectedNode === node.id ? 4 : 2}
+              opacity={getNodeOpacity(node.task)}
               className="cursor-pointer transition-all duration-200"
-              onMouseEnter={() => setHoveredNode(node.id)}
-              onMouseLeave={() => setHoveredNode(null)}
+              onMouseEnter={() => {
+                setHoveredNode(node.id)
+                setHoveredHorizon(node.task.horizon)
+              }}
+              onMouseLeave={() => {
+                setHoveredNode(null)
+                setHoveredHorizon(null)
+              }}
               onClick={() => handleNodeClick(node)}
             />
             
