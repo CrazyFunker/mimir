@@ -114,7 +114,7 @@ def _crewai_factors(task: models.Task) -> Dict[str, Any]:
     if not (Agent and Crew and CrewTask):  # library missing
         return _heuristic_factors(task)
 
-    model = settings.crewai_model or "gpt-4o-mini"
+    model = settings.crewai_model or "bedrock/eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
 
     # Lightweight specialised agents (they mainly provide role separation for newer CrewAI versions)
     email_agent = Agent(
@@ -159,6 +159,7 @@ Created At: {task.created_at}
     crew_task = CrewTask(
         description=prompt,
         expected_output="Strict JSON object with keys: urgency, importance, recency, source_signal, suggested_horizon",
+        agent=focus_agent,
     )
 
     # Some newer CrewAI versions prefer specifying a process; fall back silently if not available

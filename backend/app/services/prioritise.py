@@ -28,5 +28,5 @@ def refresh_priorities(db: Session, user_id):
                 t.horizon = models.HorizonEnum(suggested)
         t.priority_factors = factors
         t.priority = compute_priority(t, factors)
-    db.flush()
+    db.commit()
 
