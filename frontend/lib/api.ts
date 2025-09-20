@@ -1,4 +1,5 @@
-import { API_BASE_URL, DEFAULT_RETRY, FetchOptions } from './config'
+import { API_BASE_URL, DEFAULT_RETRY, FetchOptions, USE_MOCKS } from './config'
+import { mockTasksByHorizon, mockGraph, mockConnectors } from './mocks'
 import { Task, Connector, TaskId } from './types'
 
 interface ApiErrorShape {
@@ -55,6 +56,13 @@ function safeParseJSON(text: string) {
 // ---------------- Tasks ----------------
 export interface TasksResponse { tasks: Task[] }
 export async function getTasks(horizon?: string) {
+  if (USE_MOCKS) {
+    // Flatten based on requested horizon or all
+    const all: Task[] = []
+    Object.values(mockTasksByHorizon).forEach(arr => all.push(...arr))
+    const tasks = horizon ? all.filter(t => t.horizon === horizon) : all
+    return { tasks }
+  }
   const params = horizon ? `?horizon=${encodeURIComponent(horizon)}` : ''
   return internalFetch<TasksResponse>(`/api/tasks${params}`)
 }
@@ -70,6 +78,9 @@ export async function undoTask(taskId: TaskId) {
 // ---------------- Graph ----------------
 export interface GraphResponse { nodes: Task[]; edges: [TaskId, TaskId][] }
 export async function getGraph(window?: string) {
+  if (USE_MOCKS) {
+    return mockGraph
+  }
   const params = window ? `?window=${encodeURIComponent(window)}` : ''
   return internalFetch<GraphResponse>(`/api/graph${params}`)
 }
@@ -77,19 +88,31 @@ export async function getGraph(window?: string) {
 // ---------------- Connectors ----------------
 export interface ConnectorsResponse { connectors: Connector[] }
 export async function getConnectors() {
+  if (USE_MOCKS) {
+    return { connectors: mockConnectors }
+  }
   return internalFetch<ConnectorsResponse>('/api/connectors')
 }
 
 export async function connectConnector(kind: string) {
+  if (USE_MOCKS) {
+    return { connector: mockConnectors.find(c => c.kind === kind) }
+  }
   return internalFetch<{ authUrl?: string; connector?: Connector }>(`/api/connectors/${kind}/connect`, { method: 'POST' })
 }
 
 export async function testConnector(kind: string) {
+  if (USE_MOCKS) {
+    return { status: 'ok', connector: mockConnectors.find(c => c.kind === kind) }
+  }
   return internalFetch<{ status: string; connector?: Connector }>(`/api/connectors/${kind}/test`, { method: 'POST' })
 }
 
 // ---------------- Health ----------------
 export async function getHealth() {
+  if (USE_MOCKS) {
+    return { status: 'ok', version: 'mock' }
+  }
   try {
     return await internalFetch<{ status: string; version?: string }>('/api/health', { retry: 0 })
   } catch (e) {

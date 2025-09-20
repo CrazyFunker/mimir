@@ -4,9 +4,11 @@ import React, { useState } from 'react'
 import { GraphCanvas } from '@/components/graph-canvas'
 import { TaskOverlay } from '@/components/task-overlay'
 import { Task } from '@/lib/types'
+import { getGraph } from '@/lib/api'
+import { USE_MOCKS } from '@/lib/config'
 
-// Mock data for graph visualization
-const mockGraphTasks: Task[] = [
+// Local fallback mock (retain for design) – primary source now api.ts (which itself honors USE_MOCKS)
+const fallbackTasks: Task[] = [
   {
     id: '1',
     title: 'Email CTO',
@@ -69,7 +71,7 @@ const mockGraphTasks: Task[] = [
   }
 ]
 
-const mockEdges: [string, string][] = [
+const fallbackEdges: [string, string][] = [
   ['4', '1'], // Amazon food delivery led to Email CTO
   ['2', '3'], // API review connects to retrospective
 ]
@@ -86,6 +88,33 @@ export default function GraphPage() {
       month: true
     }
   })
+  const [tasks, setTasks] = useState<Task[]>(fallbackTasks)
+  const [edges, setEdges] = useState<[string,string][]>(fallbackEdges)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await getGraph()
+        if (!cancelled && res) {
+          setTasks(res.nodes || [])
+          setEdges(res.edges || [])
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          console.warn('Graph load failed, keeping fallback', e)
+          setError('Failed to load graph')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const handleNodeSelect = (task: Task) => {
     setSelectedTask(task)
@@ -95,7 +124,7 @@ export default function GraphPage() {
     setSelectedTask(null)
   }
 
-  const filteredTasks = mockGraphTasks.filter(task => {
+  const filteredTasks = tasks.filter(task => {
     // Filter by status
     if (!filters.showCompleted && task.status === 'done') return false
     if (!filters.showTodo && task.status !== 'done') return false
@@ -126,7 +155,7 @@ export default function GraphPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
             }`}
           >
-            ✓ Completed ({mockGraphTasks.filter(t => t.status === 'done').length})
+            ✓ Completed ({tasks.filter(t => t.status === 'done').length})
           </button>
           <button 
             onClick={() => setFilters(prev => ({ ...prev, showTodo: !prev.showTodo }))}
@@ -136,7 +165,7 @@ export default function GraphPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
             }`}
           >
-            ○ Future ({mockGraphTasks.filter(t => t.status !== 'done').length})
+            ○ Future ({tasks.filter(t => t.status !== 'done').length})
           </button>
           <div className="flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -204,9 +233,11 @@ export default function GraphPage() {
       </div>
 
       {/* Graph Canvas */}
+      {loading && <div className="text-sm text-muted-foreground mb-2">Loading graph...</div>}
+      {error && <div className="text-sm text-red-600 mb-2">{error} {USE_MOCKS && '(mock mode)'}</div>}
       <GraphCanvas 
         nodes={filteredTasks} 
-        edges={mockEdges} 
+        edges={edges} 
         onNodeSelect={handleNodeSelect}
       />
 
