@@ -1,73 +1,56 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ConnectorCard } from '@/components/connector-card'
 import { Button } from '@/components/ui/button'
 import { Connector } from '@/lib/types'
-
-// Mock connector data
-// Temporary mock data until backend integration
-const mockConnectors: Connector[] = [
-  {
-    id: '1',
-    kind: 'jira',
-    status: 'connected',
-    baseUrl: 'https://company.atlassian.net',
-    config: { 
-      projectKeys: ['PROJ', 'DEV'] 
-    },
-    lastSyncAt: '2025-01-20T08:30:00Z',
-    createdAt: '2025-01-15T10:00:00Z',
-    updatedAt: '2025-01-20T08:30:00Z'
-  },
-  {
-    id: '2',
-    kind: 'gmail',
-    status: 'connected',
-    config: { 
-      email: 'user@company.com',
-      labels: ['INBOX', 'TODO'] 
-    },
-    lastSyncAt: '2025-01-20T09:00:00Z',
-    createdAt: '2025-01-16T14:00:00Z',
-    updatedAt: '2025-01-20T09:00:00Z'
-  },
-  {
-    id: '3',
-    kind: 'github',
-    status: 'error',
-    config: { 
-      organization: 'company',
-      repositories: ['frontend', 'backend'] 
-    },
-    error: 'API rate limit exceeded. Please try again in 1 hour.',
-    createdAt: '2025-01-18T12:00:00Z',
-    updatedAt: '2025-01-20T07:00:00Z'
-  }
-]
+import { getConnectors, connectConnector, testConnector } from '@/lib/api'
+import { USE_MOCKS } from '@/lib/config'
 
 export default function SettingsPage() {
-  const [connectors, setConnectors] = useState(mockConnectors)
+  const [connectors, setConnectors] = useState<Connector[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [testingAll, setTestingAll] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
 
-  const handleConnect = (kind: string) => {
-    console.log('Connecting to', kind)
-    // In a real app, this would trigger OAuth flow
-    // For now, just simulate connection
-    setConnectors(prev => prev.map(conn => 
-      conn.kind === kind ? { ...conn, status: 'connecting' as const } : conn
-    ))
-    
-    setTimeout(() => {
-      setConnectors(prev => prev.map(conn => 
-        conn.kind === kind ? { 
-          ...conn, 
-          status: 'connected' as const,
-          lastSyncAt: new Date().toISOString(),
-          error: undefined
-        } : conn
-      ))
-    }, 2000)
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await getConnectors()
+        if (!cancelled) setConnectors(res.connectors || [])
+      } catch (e: any) {
+        if (!cancelled) setError('Failed to load connectors')
+        console.warn('Connector load failed', e)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const refresh = async () => {
+    try {
+      const res = await getConnectors()
+      setConnectors(res.connectors || [])
+    } catch (e) { /* ignore */ }
+  }
+
+  const handleConnect = async (kind: string) => {
+    setBusy(kind)
+    try {
+      const res = await connectConnector(kind)
+      if (res?.authUrl) {
+        window.location.href = res.authUrl
+        return
+      }
+      await refresh()
+    } catch (e) {
+      console.warn('Connect failed', e)
+    } finally { setBusy(null) }
   }
 
   const handleDisconnect = (kind: string) => {
@@ -81,29 +64,26 @@ export default function SettingsPage() {
     ))
   }
 
-  const handleTestConnection = (kind: string) => {
-    console.log('Testing connection to', kind)
-    // Simulate test
-    setConnectors(prev => prev.map(conn => 
-      conn.kind === kind ? { 
-        ...conn, 
-        lastChecked: new Date().toISOString()
-      } : conn
-    ))
+  const handleTestConnection = async (kind: string) => {
+    setBusy(kind)
+    try {
+      await testConnector(kind)
+      await refresh()
+    } catch (e) {
+      console.warn('Test failed', e)
+    } finally { setBusy(null) }
   }
 
-  const handleTestAllConnections = () => {
+  const handleTestAllConnections = async () => {
     setTestingAll(true)
-    console.log('Testing all MCP connections...')
-    
-    // Simulate testing all connections
-    setTimeout(() => {
-      setConnectors(prev => prev.map(conn => ({
-        ...conn,
-        lastChecked: new Date().toISOString()
-      })))
-      setTestingAll(false)
-    }, 3000)
+    try {
+      for (const c of connectors) {
+        await testConnector(c.kind)
+      }
+      await refresh()
+    } catch (e) {
+      console.warn('Bulk test failed', e)
+    } finally { setTestingAll(false) }
   }
 
   const connectedCount = connectors.filter(c => c.status === 'connected').length
@@ -118,7 +98,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* Connection Status Summary */}
+  {loading && <div className="mb-4 text-sm text-muted-foreground">Loading connectors...</div>}
+  {error && <div className="mb-4 text-sm text-red-600">{error} {USE_MOCKS && '(mock mode)'}</div>}
+  {/* Connection Status Summary */}
       <div className="mb-8 p-4 bg-gray-50 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
@@ -164,8 +146,8 @@ export default function SettingsPage() {
         <p className="text-muted-foreground mb-4">
           We can add support for additional services like Slack, Notion, or Linear.
         </p>
-        <Button variant="outline">
-          Request a connector
+        <Button variant="outline" onClick={refresh} disabled={loading}>
+          Refresh
         </Button>
       </div>
     </div>

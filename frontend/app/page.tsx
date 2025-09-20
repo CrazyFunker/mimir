@@ -184,7 +184,7 @@ export default function FocusPage() {
     const updatedTasks = { ...tasks }
     const horizon = task.horizon as keyof TasksByHorizon
     
-    updatedTasks[horizon] = updatedTasks[horizon].map(t => 
+    updatedTasks[horizon] = (updatedTasks[horizon] || []).map(t => 
       t.id === task.id ? { ...t, status: 'done' as const } : t
     )
     
@@ -214,7 +214,7 @@ export default function FocusPage() {
       const updatedTasks = { ...tasks }
       const horizon = lastCompletedTask.horizon as keyof TasksByHorizon
       
-      updatedTasks[horizon] = updatedTasks[horizon].map(t => 
+      updatedTasks[horizon] = (updatedTasks[horizon] || []).map(t => 
         t.id === lastCompletedTask.id ? { ...t, status: 'todo' as const } : t
       )
       

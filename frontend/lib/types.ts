@@ -18,6 +18,7 @@ export interface Task {
   horizon: TaskHorizon
   status: TaskStatus
   external?: ExternalReference
+  due?: string
   createdAt: string
   updatedAt: string
 }

@@ -100,7 +100,8 @@ export default function GraphPage() {
       try {
         const res = await getGraph()
         if (!cancelled && res) {
-          setTasks(res.nodes || [])
+          const nodes = (res.nodes || []).map(n => ({ ...n, horizon: n.horizon as Task['horizon'] })) as Task[]
+          setTasks(nodes)
           setEdges(res.edges || [])
         }
       } catch (e: any) {

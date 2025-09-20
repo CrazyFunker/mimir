@@ -1,11 +1,9 @@
-export default function OnboardingPage() {
-  return (
-    'use client'
+"use client"
 
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ConnectorCard } from '@/components/connector-card'
-import { CheckCircle, Circle, ArrowRight, Sparkles } from 'lucide-react'
+import { CheckCircle, ArrowRight, Sparkles } from 'lucide-react'
 import { Connector } from '@/lib/types'
 
 // Initial connector states for onboarding
@@ -267,7 +265,5 @@ export default function OnboardingPage() {
         </Button>
       </div>
     </div>
-  )
-}
   )
 }

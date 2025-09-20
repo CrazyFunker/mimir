@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { CircularNavButton } from '@/components/circular-nav-button'
+import { HealthBadge } from '@/components/health-badge'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -56,6 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           
           {/* Profile Menu */}
           <div className="flex items-center gap-2">
+            <HealthBadge />
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-400 transition-colors">
               <span className="text-xs font-medium">U</span>
             </div>
