@@ -18,40 +18,67 @@ def suggest_tasks_job(job_id: str, user_id: str):
     from app.services.agents import generate_suggested_tasks
     from app.services.ingest import ingest_data_for_user
     from app.services.prioritise import refresh_priorities
+    
+    print(f"Starting suggest_tasks_job for job_id: {job_id}, user_id: {user_id}")
+    
     with session_scope() as db:
         job = db.query(models.Job).filter(models.Job.id == job_id, models.Job.user_id == user_id).first()
         if not job:
+            print(f"Job not found: {job_id} for user {user_id}")
             return
+        
+        print(f"Found job {job_id}, setting status to in_progress")
         job.status = "in_progress"
         db.add(job)
         db.commit()
         created = 0
+        
         try:
             connectors = db.query(models.Connector).filter(models.Connector.user_id == user_id, models.Connector.status == "connected").all()
+            print(f"Found {len(connectors)} connected connectors for user {user_id}")
+            
             if connectors:
+                print("Processing with connectors - calling ingest_data_for_user")
                 created = ingest_data_for_user(db, user_id)
+                print(f"Ingested {created} items from connectors")
             else:
+                print("No connectors found - generating suggested tasks")
                 user_obj = db.query(models.User).filter(models.User.id == user_id).first()
                 if user_obj:
+                    print(f"Found user {user_id}, generating suggested tasks")
                     tasks = generate_suggested_tasks(user_obj)
                     if tasks:
+                        print(f"Generated {len(tasks)} suggested tasks")
                         for t in tasks:
                             db.add(t)
                         db.commit()
                         created = len(tasks)
+                    else:
+                        print("No suggested tasks generated")
+                else:
+                    print(f"User not found: {user_id}")
+            
+            print(f"Refreshing priorities for user {user_id}")
             refresh_priorities(db, user_id)
+            
             job.status = "completed"
             job.result = {"created": created}
             job.updated_at = datetime.now(timezone.utc)
             db.add(job)
             db.commit()
+            print(f"Job {job_id} completed successfully with {created} items created")
+            
         except Exception as e:  # pragma: no cover
+            print(f"Error in suggest_tasks_job for job {job_id}: {str(e)}")
             db.rollback()
             job.status = "failed"
             job.result = {"error": str(e)}
             job.updated_at = datetime.now(timezone.utc)
             db.add(job)
             db.commit()
+            print(f"Job {job_id} failed and rolled back")
+            
+    print(f"Finished suggest_tasks_job for job_id: {job_id}")
     return True
 
 

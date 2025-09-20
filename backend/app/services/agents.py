@@ -229,6 +229,8 @@ def get_factors(task: models.Task) -> Dict[str, Any]:
 
 def generate_suggested_tasks(user: models.User) -> list[models.Task]:
     """Generate a few suggested tasks for a user without connected sources."""
+    print(f"[DEBUG] Generating suggested tasks for user {user.id} ({user.email if hasattr(user, 'email') else 'unknown'})")
+    
     # crewai not available/installed
     if Agent is None or ChatLiteLLM is None:
         return []
