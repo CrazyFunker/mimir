@@ -13,6 +13,25 @@ class Settings(BaseSettings):
 
     db_url: str
     redis_url: str
+    chroma_host: str | None = None
+    chroma_path: str | None = None
+
+    # LLM / embedding provider configuration
+    litellm_provider: str | None = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str | None = None
+
+    # OAuth client settings (placeholders for now)
+    oauth_redirect_base: str | None = None
+    oauth_google_client_id: str | None = None
+    oauth_google_client_secret: str | None = None
+    oauth_github_client_id: str | None = None
+    oauth_github_client_secret: str | None = None
+    oauth_atlassian_client_id: str | None = None
+    oauth_atlassian_client_secret: str | None = None
 
     encryption_key: str
     allowed_cors_origins: List[AnyHttpUrl] | List[str] = ["http://localhost:3000"]

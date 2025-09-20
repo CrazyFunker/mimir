@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from app.schemas import HealthStatus
 from app.db import db_ready
 from app.config import settings
@@ -13,7 +13,7 @@ def healthz():
 
 
 @router.get("/readyz", response_model=HealthStatus)
-def readyz():
+def readyz(response: Response):
     # DB + Redis simple check
     db_ok = db_ready()
     redis_ok = False
@@ -25,4 +25,5 @@ def readyz():
         redis_ok = False
     if db_ok and redis_ok:
         return {"status": "ok"}
-    return {"status": "starting"}
+    response.status_code = 503
+    return {"status": "unready"}

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any
 from enum import Enum
 import uuid
 
@@ -32,6 +32,26 @@ class Task(BaseModel):
 
 class TaskList(BaseModel):
     tasks: List[Task]
+
+
+class Connector(BaseModel):
+    id: Optional[uuid.UUID] = None
+    kind: str
+    status: str = "disconnected"
+    message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConnectorList(BaseModel):
+    connectors: List[Connector]
+
+
+class GraphResponse(BaseModel):
+    nodes: List[Task]
+    edges: List[List[uuid.UUID]]
+    meta: Optional[Any] = None
 
 
 class HealthStatus(BaseModel):
