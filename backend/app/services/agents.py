@@ -233,17 +233,24 @@ def generate_suggested_tasks(user: models.User) -> list[models.Task]:
     
     # crewai not available/installed
     if Agent is None or ChatLiteLLM is None:
+        print("[DEBUG] Agent or ChatLiteLLM is None, returning empty list")
         return []
     try:
         from litellm import completion
-    except Exception:
+        print("[DEBUG] Successfully imported litellm.completion")
+    except Exception as e:
+        print(f"[DEBUG] Failed to import litellm.completion: {e}")
         return []
 
     llm = None
     if settings.crewai_model:
+        print(f"[DEBUG] Creating ChatLiteLLM with model: {settings.crewai_model}")
         llm = ChatLiteLLM(model=settings.crewai_model)
+    else:
+        print("[DEBUG] No crewai_model configured, using default LLM")
 
     # Basic agent to generate ideas
+    print("[DEBUG] Creating task_generator Agent")
     task_generator = Agent(
         role="Assistant",
         goal="Brainstorm a few (3-4) realistic but varied work-related tasks a professional might need to do. The user has no connected tools, so these should be general purpose.",
@@ -266,33 +273,55 @@ Example format:
 
 Your response should only contain the JSON array.
 """
+    print(f"[DEBUG] Created prompt: {prompt[:100]}...")
+    print("[DEBUG] Creating CrewTask")
     gen_task = CrewTask(description=prompt, agent=task_generator, expected_output="A JSON array of task suggestions.")
 
     # Simplified crew for just one agent/task
+    print("[DEBUG] Creating Crew with 1 agent and 1 task")
     crew = Crew(agents=[task_generator], tasks=[gen_task], verbose=0)
+    
     # Run the generation and extract JSON
-    result = crew.kickoff()
+    print("[DEBUG] Running crew.kickoff()")
+    try:
+        result = crew.kickoff()
+        print(f"[DEBUG] Crew result type: {type(result)}")
+        print(f"[DEBUG] Crew result: {result}")
+    except Exception as e:
+        print(f"[DEBUG] Error during crew.kickoff(): {e}")
+        return []
+    
+    print("[DEBUG] Extracting JSON from result")
     raw_json = _extract_json_like(result)
+    print(f"[DEBUG] Extracted JSON: {raw_json}")
+    
     if not raw_json or not isinstance(raw_json, list):
+        print(f"[DEBUG] Invalid JSON format - not a list: {type(raw_json)}")
         return []
 
     # Parse into Task objects
+    print(f"[DEBUG] Processing {len(raw_json)} task items")
     tasks = []
-    for item in raw_json:
+    for i, item in enumerate(raw_json):
+        print(f"[DEBUG] Processing item {i}: {item}")
         if not isinstance(item, dict) or "title" not in item or "horizon" not in item:
+            print(f"[DEBUG] Skipping invalid item {i}: missing required fields")
             continue
         try:
             horizon = models.HorizonEnum(item["horizon"])
-            tasks.append(
-                models.Task(
-                    user_id=user.id,
-                    title=item["title"],
-                    horizon=horizon,
-                    status=models.StatusEnum.todo,
-                    source="suggestion",
-                )
+            task = models.Task(
+                user_id=user.id,
+                title=item["title"],
+                horizon=horizon,
+                status=models.StatusEnum.todo,
+                source="suggestion",
             )
-        except (ValueError, KeyError):
+            tasks.append(task)
+            print(f"[DEBUG] Created task: {task.title} with horizon {horizon}")
+        except (ValueError, KeyError) as e:
+            print(f"[DEBUG] Error creating task from item {i}: {e}")
             continue  # Skip invalid horizon values
+    
+    print(f"[DEBUG] Returning {len(tasks)} generated tasks")
     return tasks
 
