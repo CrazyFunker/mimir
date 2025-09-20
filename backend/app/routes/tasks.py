@@ -9,6 +9,13 @@ import uuid
 from app.services.prioritise import refresh_priorities
 from app.services.ingest import ingest_data_for_user
 from app.services.agents import generate_suggested_tasks
+from app.schemas import Job as JobSchema
+from sqlalchemy.exc import SQLAlchemyError
+try:
+    # Celery task (optional)
+    from app.worker.tasks import suggest_tasks_job  # type: ignore
+except Exception:  # pragma: no cover - celery optional
+    suggest_tasks_job = None  # type: ignore
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -98,17 +105,81 @@ def recompute_priorities(user=Depends(get_current_user), db: Session = Depends(g
 
 @router.post("/suggest", status_code=202)
 def suggest_tasks(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    # 1. Refresh information from the connected connectors.
-    connectors = db.scalars(select(models.Connector).where(models.Connector.user_id == user.id, models.Connector.status == "connected")).all()
-    if connectors:
-        ingest_data_for_user(db, user.id)
-    else:
-        # 2. If there are no connected connectors, call an LLM to generate some new random tasks.
-        random_tasks = generate_suggested_tasks(user)
-        if random_tasks:
-            db.add_all(random_tasks)
-            db.commit()
+    """Kick off (async) suggested task generation + prioritisation.
 
-    # 3. Kick off the CrewAI agents to recompute priorities of tasks.
-    refresh_priorities(db, user.id)
-    return {"status": "ok"}
+    Returns 202 with a job id that can be polled.
+    """
+    # Create a Job row
+    job = models.Job(user_id=user.id, status="pending", job_type="suggest_tasks", result=None)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    def _inline_run(job_id: uuid.UUID, user_id: uuid.UUID):
+        """Fallback inline execution if Celery not available."""
+        try:
+            j = db.scalar(select(models.Job).where(models.Job.id == job_id, models.Job.user_id == user_id))
+            if not j:
+                return
+            j.status = "in_progress"
+            db.add(j)
+            db.commit()
+            created = 0
+            # connectors ingestion or random generation
+            connectors = db.scalars(select(models.Connector).where(models.Connector.user_id == user_id, models.Connector.status == "connected")).all()
+            if connectors:
+                try:
+                    created = ingest_data_for_user(db, user_id)
+                except Exception as e:  # pragma: no cover
+                    j.status = "failed"
+                    j.result = {"error": str(e)}
+                    db.add(j)
+                    db.commit()
+                    return
+            else:
+                random_tasks = generate_suggested_tasks(user)
+                if random_tasks:
+                    for t in random_tasks:
+                        db.add(t)
+                    db.commit()
+                    created = len(random_tasks)
+            # Recompute priorities
+            refresh_priorities(db, user_id)
+            j.status = "completed"
+            j.result = {"created": created}
+            db.add(j)
+            db.commit()
+        except SQLAlchemyError as e:  # pragma: no cover
+            db.rollback()
+            try:
+                j = db.scalar(select(models.Job).where(models.Job.id == job_id))
+                if j:
+                    j.status = "failed"
+                    j.result = {"error": str(e)}
+                    db.add(j)
+                    db.commit()
+            except Exception:
+                pass
+
+    # Enqueue Celery task if available, else run inline
+    if suggest_tasks_job is not None:
+        try:  # pragma: no cover - celery path
+            suggest_tasks_job.delay(str(job.id), str(user.id))
+        except Exception:
+            _inline_run(job.id, user.id)
+    else:
+        _inline_run(job.id, user.id)
+
+    return {"job_id": str(job.id), "status": job.status}
+
+
+@router.get("/suggest/{job_id}", response_model=JobSchema)
+def get_suggest_job_status(job_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job id")
+    job = db.scalar(select(models.Job).where(models.Job.id == job_uuid, models.Job.user_id == user.id, models.Job.job_type == "suggest_tasks"))
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job

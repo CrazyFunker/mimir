@@ -30,17 +30,23 @@ def build_graph(db: Session, user_id: str, window: str = "month"):
     # Assign lanes
     nodes = []
     for task in tasks:
-        node = task.to_dict() # Assuming a to_dict() method on the model
-        if task.status == "done" and task.completed_at and task.completed_at >= now - timedelta(days=7):
+        node = task.to_dict()
+        status_val = task.status.value if hasattr(task.status, 'value') else task.status
+        horizon_val = task.horizon.value if hasattr(task.horizon, 'value') else task.horizon
+        completed_at = task.completed_at
+        if completed_at and completed_at.tzinfo is None:
+            # Assume UTC if naive
+            completed_at = completed_at.replace(tzinfo=timezone.utc)
+        if status_val == "done" and completed_at and completed_at >= now - timedelta(days=7):
             node["lane"] = "past7d"
-        elif task.horizon == "today" and task.status != "done":
+        elif horizon_val == "today" and status_val != "done":
             node["lane"] = "today"
-        elif task.horizon == "week" and task.status != "done":
+        elif horizon_val == "week" and status_val != "done":
             node["lane"] = "week"
-        elif task.horizon == "month" and task.status != "done":
+        elif horizon_val == "month" and status_val != "done":
             node["lane"] = "month"
         else:
-            node["lane"] = "archive" # Or some other default
+            node["lane"] = "archive"
         nodes.append(node)
 
     edges: List[Tuple[str, str]] = [(str(l.parent), str(l.child)) for l in links]

@@ -6,6 +6,53 @@ from app.services.embeddings import embed_texts
 from app.services.connectors.base import get_connector_by_kind
 from app.services.crypto import decrypt_token
 from app.services import normalization
+from datetime import datetime, timezone
+
+
+@celery_app.task(name="suggest_tasks_job", queue="agent")
+def suggest_tasks_job(job_id: str, user_id: str):
+    """Celery job to generate suggested tasks (if needed) and recompute priorities.
+
+    Updates the jobs table with status/result.
+    """
+    from app.services.agents import generate_suggested_tasks
+    from app.services.ingest import ingest_data_for_user
+    from app.services.prioritise import refresh_priorities
+    with session_scope() as db:
+        job = db.query(models.Job).filter(models.Job.id == job_id, models.Job.user_id == user_id).first()
+        if not job:
+            return
+        job.status = "in_progress"
+        db.add(job)
+        db.commit()
+        created = 0
+        try:
+            connectors = db.query(models.Connector).filter(models.Connector.user_id == user_id, models.Connector.status == "connected").all()
+            if connectors:
+                created = ingest_data_for_user(db, user_id)
+            else:
+                user_obj = db.query(models.User).filter(models.User.id == user_id).first()
+                if user_obj:
+                    tasks = generate_suggested_tasks(user_obj)
+                    if tasks:
+                        for t in tasks:
+                            db.add(t)
+                        db.commit()
+                        created = len(tasks)
+            refresh_priorities(db, user_id)
+            job.status = "completed"
+            job.result = {"created": created}
+            job.updated_at = datetime.now(timezone.utc)
+            db.add(job)
+            db.commit()
+        except Exception as e:  # pragma: no cover
+            db.rollback()
+            job.status = "failed"
+            job.result = {"error": str(e)}
+            job.updated_at = datetime.now(timezone.utc)
+            db.add(job)
+            db.commit()
+    return True
 
 
 @celery_app.task(name="run_connector_test", queue="test")

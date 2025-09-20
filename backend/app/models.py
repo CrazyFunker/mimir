@@ -130,7 +130,8 @@ class Job(Base):
     user_id = Column(GUID, ForeignKey("users.id"), nullable=False)
     status = Column(String, nullable=False, default="pending")  # pending, in_progress, completed, failed
     job_type = Column(String, nullable=False)  # suggest_tasks, ingest_data
-    result = Column(JSONB, nullable=True)
+    # Use generic JSON for cross-dialect compatibility (SQLite in tests lacks JSONB)
+    result = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
