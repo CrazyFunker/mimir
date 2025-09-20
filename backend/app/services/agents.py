@@ -72,6 +72,24 @@ def _heuristic_factors(task: models.Task) -> Dict[str, Any]:
     return factors
 
 
+def _crew_result_to_str(result: Any) -> str:
+    """Convert CrewAI result to a string, handling CrewOutput objects."""
+    if not result:
+        return ""
+    if hasattr(result, "raw"):  # New CrewAI output
+        return str(result.raw)
+    return str(result)
+
+
+def _crew_result_to_str(result: Any) -> str:
+    """Convert CrewAI result to a string, handling CrewOutput objects."""
+    if not result:
+        return ""
+    if hasattr(result, "raw") and result.raw:  # New CrewAI output
+        return str(result.raw)
+    return str(result)
+
+
 def _extract_json_like(s: str) -> Optional[dict]:
     """Attempt to extract the first JSON object from a string.
     Returns dict or None."""
@@ -290,7 +308,8 @@ Your response should only contain the JSON array.
         return []
     
     print("[DEBUG] Extracting JSON from result")
-    raw_json = _extract_json_like(result)
+    result_str = _crew_result_to_str(result)
+    raw_json = _extract_json_like(result_str)
     print(f"[DEBUG] Extracted JSON: {raw_json}")
     
     if not raw_json or not isinstance(raw_json, list):

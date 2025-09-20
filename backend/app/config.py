@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
     aws_region: str | None = None
     aws_bedrock_role: str | None = None  # IAM role to assume for Bedrock (e.g., devops-ai-developer)
     enable_crewai: bool = False
