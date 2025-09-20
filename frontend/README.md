@@ -130,6 +130,26 @@ When `USE_MOCKS` is false:
 - Each helper hits the real backend endpoint (e.g. `/api/tasks`, `/api/graph`, `/api/connectors`).
 - Failures are caught in-page and often degrade gracefully to previously loaded or fallback content (Focus, Graph, Settings each show subtle messages / console warnings).
 
+### Automatic Runtime Fallback (Auto Fallback)
+
+Even when `NEXT_PUBLIC_USE_MOCKS=false`, the frontend will transparently fall back to mock data if the backend becomes unreachable (network error, refused connection, or repeated 5xx). This is controlled by an internal runtime flag (not an env var). Key points:
+
+- First failing functional API call (tasks / graph / connectors / task mutation) triggers activation.
+- Subsequent calls use mock data until a real backend request succeeds again.
+- Health checks alone do not activate fallback, but a successful health or functional request will clear the fallback.
+- Console logs will show: `[api] Activating automatic mock fallback ...` and later `[api] Backend reachable again – disabling automatic mock fallback`.
+- The UI badge shows "Auto Fallback" to distinguish it from explicit Mock Mode.
+
+State meanings in the header badge:
+
+| Badge Label | Condition | Source |
+|-------------|-----------|--------|
+| Mock Mode | `NEXT_PUBLIC_USE_MOCKS=true` | Explicit env flag |
+| Auto Fallback | `NEXT_PUBLIC_USE_MOCKS=false` but backend temporarily unreachable so runtime fallback active | Runtime detection |
+| API OK / API (vX.Y.Z) | Backend reachable and healthy | Real backend |
+| API Degraded | Backend reachable but reported degraded (if backend sets that status) | Real backend |
+| API Down | Health endpoint unreachable and no fallback active yet (very early) | Real backend attempt |
+
 ### Why Centralized Mocking?
 
 Benefits:
@@ -150,11 +170,14 @@ The value is read at build time (Next.js inlines `process.env.NEXT_PUBLIC_*`). C
 
 ### Health Indicator
 
-`<HealthBadge />` (in header) polls `getHealth()` every 30s:
+`<HealthBadge />` (in header) polls `getHealth()` every 30s and reads runtime fallback state:
 
-- Mock mode: shows `Mock Mode` gray pill.
-- Real mode: displays status (OK / Degraded / Down) + version if supplied.
-- Hover (real mode) shows last checked time.
+- Mock Mode: explicit env mock.
+- Auto Fallback: runtime automatic fallback active.
+- API OK / API (vX.Y.Z): normal service.
+- API Degraded: backend reported degraded.
+- API Down: unreachable (before a functional call triggered fallback) / transient network issue.
+- Hover (non-mock modes) shows last checked time.
 
 ## Expected Backend Endpoints
 

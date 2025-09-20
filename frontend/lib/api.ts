@@ -2,6 +2,27 @@ import { API_BASE_URL, DEFAULT_RETRY, FetchOptions, USE_MOCKS } from './config'
 import { mockTasksByHorizon, mockGraph, mockConnectors } from './mocks'
 import { Task, Connector, TaskId } from './types'
 
+// Runtime automatic fallback flag: enabled when real backend becomes unreachable
+let AUTO_MOCK_ACTIVE = false
+
+export function isUsingMocks() {
+  return USE_MOCKS || AUTO_MOCK_ACTIVE
+}
+
+function activateAutoMock(context: string, err: unknown) {
+  if (!AUTO_MOCK_ACTIVE && !USE_MOCKS) {
+    console.warn(`[api] Activating automatic mock fallback after failure in ${context}:`, err)
+  }
+  AUTO_MOCK_ACTIVE = true
+}
+
+function resetAutoMockIfNeeded() {
+  if (AUTO_MOCK_ACTIVE) {
+    console.info('[api] Backend reachable again – disabling automatic mock fallback')
+    AUTO_MOCK_ACTIVE = false
+  }
+}
+
 interface ApiErrorShape {
   error?: string
   message?: string
@@ -55,57 +76,109 @@ function safeParseJSON(text: string) {
 
 // ---------------- Tasks ----------------
 export interface TasksResponse { tasks: Task[] }
+function mockTasksResponse(horizon?: string) {
+  const all: Task[] = []
+  Object.values(mockTasksByHorizon).forEach(arr => all.push(...arr))
+  const tasks = horizon ? all.filter(t => t.horizon === horizon) : all
+  return { tasks }
+}
+
 export async function getTasks(horizon?: string) {
-  if (USE_MOCKS) {
-    // Flatten based on requested horizon or all
-    const all: Task[] = []
-    Object.values(mockTasksByHorizon).forEach(arr => all.push(...arr))
-    const tasks = horizon ? all.filter(t => t.horizon === horizon) : all
-    return { tasks }
-  }
+  if (isUsingMocks()) return mockTasksResponse(horizon)
   const params = horizon ? `?horizon=${encodeURIComponent(horizon)}` : ''
-  return internalFetch<TasksResponse>(`/api/tasks${params}`)
+  try {
+    const res = await internalFetch<TasksResponse>(`/api/tasks${params}`)
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('getTasks', e)
+    return mockTasksResponse(horizon)
+  }
 }
 
 export async function completeTask(taskId: TaskId) {
-  return internalFetch<{ success: boolean; task?: Task }>(`/api/tasks/${taskId}/complete`, { method: 'POST' })
+  if (isUsingMocks()) {
+    return { success: true }
+  }
+  try {
+    const res = await internalFetch<{ success: boolean; task?: Task }>(`/api/tasks/${taskId}/complete`, { method: 'POST' })
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('completeTask', e)
+    return { success: true }
+  }
 }
 
 export async function undoTask(taskId: TaskId) {
-  return internalFetch<{ success: boolean; task?: Task }>(`/api/tasks/${taskId}/undo`, { method: 'POST' })
+  if (isUsingMocks()) {
+    return { success: true }
+  }
+  try {
+    const res = await internalFetch<{ success: boolean; task?: Task }>(`/api/tasks/${taskId}/undo`, { method: 'POST' })
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('undoTask', e)
+    return { success: true }
+  }
 }
 
 // ---------------- Graph ----------------
 export interface GraphResponse { nodes: Task[]; edges: [TaskId, TaskId][] }
 export async function getGraph(window?: string) {
-  if (USE_MOCKS) {
+  if (isUsingMocks()) return mockGraph
+  const params = window ? `?window=${encodeURIComponent(window)}` : ''
+  try {
+    const res = await internalFetch<GraphResponse>(`/api/graph${params}`)
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('getGraph', e)
     return mockGraph
   }
-  const params = window ? `?window=${encodeURIComponent(window)}` : ''
-  return internalFetch<GraphResponse>(`/api/graph${params}`)
 }
 
 // ---------------- Connectors ----------------
 export interface ConnectorsResponse { connectors: Connector[] }
 export async function getConnectors() {
-  if (USE_MOCKS) {
+  if (isUsingMocks()) return { connectors: mockConnectors }
+  try {
+    const res = await internalFetch<ConnectorsResponse>('/api/connectors')
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('getConnectors', e)
     return { connectors: mockConnectors }
   }
-  return internalFetch<ConnectorsResponse>('/api/connectors')
 }
 
 export async function connectConnector(kind: string) {
-  if (USE_MOCKS) {
+  if (isUsingMocks()) {
     return { connector: mockConnectors.find(c => c.kind === kind) }
   }
-  return internalFetch<{ authUrl?: string; connector?: Connector }>(`/api/connectors/${kind}/connect`, { method: 'POST' })
+  try {
+    const res = await internalFetch<{ authUrl?: string; connector?: Connector }>(`/api/connectors/${kind}/connect`, { method: 'POST' })
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('connectConnector', e)
+    return { connector: mockConnectors.find(c => c.kind === kind) }
+  }
 }
 
 export async function testConnector(kind: string) {
-  if (USE_MOCKS) {
+  if (isUsingMocks()) {
     return { status: 'ok', connector: mockConnectors.find(c => c.kind === kind) }
   }
-  return internalFetch<{ status: string; connector?: Connector }>(`/api/connectors/${kind}/test`, { method: 'POST' })
+  try {
+    const res = await internalFetch<{ status: string; connector?: Connector }>(`/api/connectors/${kind}/test`, { method: 'POST' })
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('testConnector', e)
+    return { status: 'ok', connector: mockConnectors.find(c => c.kind === kind) }
+  }
 }
 
 // ---------------- Health ----------------
@@ -114,8 +187,12 @@ export async function getHealth() {
     return { status: 'ok', version: 'mock' }
   }
   try {
-    return await internalFetch<{ status: string; version?: string }>('/api/health', { retry: 0 })
+    const res = await internalFetch<{ status: string; version?: string }>('/api/health', { retry: 0 })
+    // Only reset if backend is reachable and not mock override
+    resetAutoMockIfNeeded()
+    return res
   } catch (e) {
+    // Do not immediately activate fallback solely on health; leave that to functional calls.
     return { status: 'unreachable' }
   }
 }

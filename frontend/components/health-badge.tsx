@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
-import { getHealth } from '@/lib/api'
+import { getHealth, isUsingMocks } from '@/lib/api'
 import { USE_MOCKS } from '@/lib/config'
 
 interface HealthState {
@@ -35,8 +35,10 @@ export function HealthBadge() {
 
   const { status, version } = health
 
+  const runtimeMocks = isUsingMocks()
   const display = (() => {
     if (USE_MOCKS) return { label: 'Mock Mode', color: 'bg-slate-500', pulse: false }
+    if (runtimeMocks) return { label: 'Auto Fallback', color: 'bg-amber-500', pulse: false }
     if (status === 'loading') return { label: 'Checking…', color: 'bg-gray-300 animate-pulse', pulse: true }
     if (status === 'ok') return { label: version ? `API ${version}` : 'API OK', color: 'bg-emerald-500', pulse: false }
     if (status === 'degraded') return { label: 'API Degraded', color: 'bg-amber-500', pulse: false }
@@ -45,7 +47,7 @@ export function HealthBadge() {
 
   return (
     <div
-      className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium select-none cursor-default transition-colors ${USE_MOCKS ? 'border-slate-400/50 text-slate-600 bg-slate-50' : 'border-gray-300 text-gray-600 bg-white'}`}
+  className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium select-none cursor-default transition-colors ${runtimeMocks ? 'border-slate-400/50 text-slate-600 bg-slate-50' : 'border-gray-300 text-gray-600 bg-white'}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       aria-label={`Backend health: ${display.label}`}
