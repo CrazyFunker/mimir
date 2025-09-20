@@ -32,21 +32,33 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
   useEffect(() => {
     if (nodes.length === 0) return
     
-    const mockNodes: GraphNode[] = nodes.map((task, index) => {
-      // Position nodes based on their horizon
-      const horizonY = {
-        'past7d': 80,
-        'today': 160,
-        'week': 240,
-        'month': 320
-      }
-      
-      return {
-        id: task.id,
-        x: 350 + (index % 3 - 1) * 120, // Horizontal stacking around center
-        y: horizonY[task.horizon] || 80,
-        task
-      }
+    // Group nodes by horizon first
+    const horizonsOrder: Array<'past7d' | 'today' | 'week' | 'month'> = ['past7d', 'today', 'week', 'month']
+    const grouped: Record<string, Task[]> = {}
+    horizonsOrder.forEach(h => { grouped[h] = [] })
+    nodes.forEach(t => { (grouped[t.horizon] = grouped[t.horizon] || []).push(t) })
+
+    // Sort each horizon's tasks by ID (string compare) and map to positions
+    const mockNodes: GraphNode[] = []
+    const horizonY: Record<string, number> = {
+      'past7d': 80,
+      'today': 160,
+      'week': 240,
+      'month': 320
+    }
+    horizonsOrder.forEach(h => {
+      const list = (grouped[h] || []).slice().sort((a, b) => a.id.localeCompare(b.id))
+      list.forEach((task, idx) => {
+        const baseX = 350
+        const spacing = 120
+        const offset = (idx - (list.length - 1) / 2) * spacing // center them
+        mockNodes.push({
+          id: task.id,
+            x: baseX + offset,
+            y: horizonY[task.horizon] || 80,
+            task
+        })
+      })
     })
     
     setGraphNodes(mockNodes)
