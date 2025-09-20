@@ -19,13 +19,13 @@ def list_connectors(user=Depends(get_current_user), db=Depends(get_db)):
 
 @router.post("/{kind}/connect", response_model=dict)
 def start_connect(kind: str, user=Depends(get_current_user), db=Depends(get_db)):
-    # placeholder: create or update connector record
     existing = db.query(models.Connector).filter(models.Connector.user_id == user.id, models.Connector.kind == kind).first()
     if not existing:
         existing = models.Connector(user_id=user.id, kind=kind, status="connecting")
         db.add(existing)
         db.flush()
-    return {"url": f"https://example.com/oauth/{kind}", "status": existing.status}
+    # instruct client to visit oauth start endpoint
+    return {"authorize_start": f"/oauth/start/{kind}", "status": existing.status}
 
 
 @router.post("/{kind}/test", response_model=dict)

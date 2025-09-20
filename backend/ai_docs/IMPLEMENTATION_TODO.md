@@ -116,12 +116,12 @@ tests/
   * `authorize() -> str`, `exchange_code(...)`, `refresh()`
   * `test() -> ConnectorStatus`
   * `fetch() -> list[Item]` (normalised item dicts)
-* [ ] Implement **Gmail** (Google), **Jira/Confluence** (Atlassian), **GitHub**, **Google Drive**: (STUBS ONLY – real network logic + encryption persistence pending)
+* [ ] Implement **Gmail** (Google), **Jira/Confluence** (Atlassian), **GitHub**, **Google Drive**: (STUBS ONLY – token exchange + encryption now wired via generic callback; provider-specific scopes + real API calls pending)
 
   * Store tokens encrypted.
   * Minimal `test()` call (e.g., profile or list 1 item).
   * `authorize()` builds provider URL; `oauth.py` handles callback.
-* [ ] Map provider errors → `status="error"` + `message="Press to retry"`.
+* [ ] Map provider errors → `status="error"` + `message="Press to retry"`. (NOT STARTED – error mapping)
 
 **DoD:** `POST /api/connectors/{kind}/test` returns `ok` on valid creds and `error` with message on failure.
 
@@ -137,10 +137,10 @@ tests/
   * `ingest_connector(kind, user_id)`
   * `embed_items(user_id, items)`
   * `run_agents(user_id)`
-* [ ] Triggers:
+* [x] Triggers: (OAuth callback enqueues ingest)
 
-  * After OAuth success → enqueue `ingest_connector`.
-  * `POST /api/connectors/test_all` → chain tests with progress events.
+  * After OAuth success → enqueue `ingest_connector`. (DONE)
+  * `POST /api/connectors/test_all` → chain tests with progress events. (PARTIAL – sequential SSE stub only, not queued)
 
 **DoD:** Celery worker processes jobs; logs show queue activity.
 
@@ -148,10 +148,10 @@ tests/
 
 # H) Normalisation & task creation
 
-* [ ] Define internal **Item → Task** mapping: (NOT STARTED – to be added when real fetch implemented)
+* [x] Define internal **Item → Task** mapping: (Basic mapping in `services/ingest.py` – may expand fields later)
 
   * title, description snippet, horizon (initial guess), source\_kind/ref/url, due (if present).
-* [ ] Dedupe identical items (same source\_ref or text similarity; see embeddings in next step).
+* [x] Dedupe identical items (same source\_ref or text similarity; see embeddings in next step). (Implemented simple source_ref + kind check; similarity pending)
 * [ ] Persist tasks with initial `status="todo"`.
 
 **DoD:** After `ingest_connector`, tasks exist in DB for the dev user.
