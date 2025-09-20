@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 from enum import Enum
 import uuid
+from datetime import datetime
 
 
 class Horizon(str, Enum):
@@ -62,3 +63,15 @@ class GraphResponse(BaseModel):
 
 class HealthStatus(BaseModel):
     status: str = Field(example="ok")
+
+
+class Job(BaseModel):
+    id: uuid.UUID
+    status: str
+    job_type: str
+    result: Optional[dict] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True

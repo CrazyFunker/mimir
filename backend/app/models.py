@@ -1,10 +1,27 @@
-import uuid
-from sqlalchemy import Column, String, DateTime, Text, Enum, Float, ForeignKey, JSON, Date, TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.sql import func
+from sqlalchemy import (
+    Column,
+    String,
+    DateTime,
+    func,
+    ForeignKey,
+    Text,
+    Float,
+    Enum as PgEnum,
+    Boolean,
+    TypeDecorator,
+    CHAR,
+    Date,
+    JSON,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+import uuid
 from sqlalchemy.orm import relationship
-from app.db import Base
-import enum
+from .db import Base
+from enum import Enum
+from sqlalchemy.types import TypeDecorator, CHAR
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+import uuid
 
 
 class GUID(TypeDecorator):
@@ -18,7 +35,7 @@ class GUID(TypeDecorator):
 
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
-            return dialect.type_descriptor(PG_UUID())
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
         else:
             return dialect.type_descriptor(CHAR(32))
 
@@ -43,14 +60,14 @@ class GUID(TypeDecorator):
             return value
 
 
-class HorizonEnum(str, enum.Enum):
+class HorizonEnum(str, Enum):
     today = "today"
     week = "week"
     month = "month"
     past7d = "past7d"
 
 
-class StatusEnum(str, enum.Enum):
+class StatusEnum(str, Enum):
     todo = "todo"
     in_progress = "in_progress"
     done = "done"
@@ -72,8 +89,8 @@ class Task(Base):
     user_id = Column(GUID, ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    horizon = Column(Enum(HorizonEnum), nullable=False, default=HorizonEnum.week)
-    status = Column(Enum(StatusEnum), nullable=False, default=StatusEnum.todo)
+    horizon = Column(PgEnum(HorizonEnum), nullable=False, default=HorizonEnum.week)
+    status = Column(PgEnum(StatusEnum), nullable=False, default=StatusEnum.todo)
     source_kind = Column(String, nullable=True)
     source_ref = Column(String, nullable=True)
     source_url = Column(String, nullable=True)
@@ -105,6 +122,19 @@ class Task(Base):
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id"), nullable=False)
+    status = Column(String, nullable=False, default="pending")  # pending, in_progress, completed, failed
+    job_type = Column(String, nullable=False)  # suggest_tasks, ingest_data
+    result = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship("User")
 
 
 class Connector(Base):
