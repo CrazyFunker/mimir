@@ -33,17 +33,17 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
     
     const mockNodes: GraphNode[] = nodes.map((task, index) => {
       // Position nodes based on their horizon
-      const horizonX = {
-        'past7d': 100,
-        'today': 250,
-        'week': 400,
-        'month': 550
+      const horizonY = {
+        'past7d': 80,
+        'today': 160,
+        'week': 240,
+        'month': 320
       }
       
       return {
         id: task.id,
-        x: horizonX[task.horizon] || 100,
-        y: 150 + (index % 3) * 80, // Vertical stacking
+        x: 350 + (index % 3 - 1) * 120, // Horizontal stacking around center
+        y: horizonY[task.horizon] || 80,
         task
       }
     })
