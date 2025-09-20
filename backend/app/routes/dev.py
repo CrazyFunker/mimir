@@ -57,9 +57,9 @@ def seed(db=Depends(get_db), user=Depends(get_current_user)):
 
     # Connectors
     connector_states = {
-        "gmail": "ok",
-        "jira": "ok",
-        "github": "error",
+        "gmail": "disconnected",
+        "jira": "disconnected",
+        "github": "disconnected",
         "gdrive": "disconnected",
     }
     for kind, status in connector_states.items():

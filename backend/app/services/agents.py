@@ -7,6 +7,7 @@ import json, re
 
 try:  # CrewAI is optional; code must operate without it
     from crewai import Agent, Task as CrewTask, Crew  # type: ignore
+    from crewai_tools.llms import ChatLiteLLM
     try:
         from crewai import Process  # >=0.50 style
     except Exception:  # older versions
@@ -16,6 +17,7 @@ except Exception:  # crewai not installed or import error
     CrewTask = None  # type: ignore
     Crew = None  # type: ignore
     Process = None  # type: ignore
+    ChatLiteLLM = None # type: ignore
 
 
 def _heuristic_urgency(task: models.Task) -> float:
@@ -205,4 +207,72 @@ def get_factors(task: models.Task) -> Dict[str, Any]:
     if settings.enable_crewai:
         return _crewai_factors(task)
     return _heuristic_factors(task)
+
+
+def generate_suggested_tasks(user: models.User) -> list[models.Task]:
+    """Generate a few suggested tasks for a user without connected sources."""
+    # crewai not available/installed
+    if Agent is None or ChatLiteLLM is None:
+        return []
+    try:
+        from litellm import completion
+    except Exception:
+        return []
+
+    llm = None
+    if settings.crewai_model:
+        llm = ChatLiteLLM(model=settings.crewai_model)
+
+    # Basic agent to generate ideas
+    task_generator = Agent(
+        role="Assistant",
+        goal="Brainstorm a few (3-4) realistic but varied work-related tasks a professional might need to do. The user has no connected tools, so these should be general purpose.",
+        backstory="You are a helpful assistant.",
+        verbose=False,
+        allow_delegation=False,
+        llm=llm,
+    )
+    prompt = f"""Please generate 3-4 varied, realistic work-related tasks for a user. The user has no connected data sources, so make them general and creative.
+
+Return the tasks as a JSON array, where each object has:
+- "title": string (task description)
+- "horizon": string, one of "today", "week", "month"
+
+Example format:
+[
+    {{"title": "Draft the Q4 marketing plan", "horizon": "week"}},
+    {{"title": "Book flights for the upcoming conference", "horizon": "today"}}
+]
+
+Your response should only contain the JSON array.
+"""
+    gen_task = CrewTask(description=prompt, agent=task_generator, expected_output="A JSON array of task suggestions.")
+
+    # Simplified crew for just one agent/task
+    crew = Crew(agents=[task_generator], tasks=[gen_task], verbose=0)
+    # Run the generation and extract JSON
+    result = crew.kickoff()
+    raw_json = _extract_json_like(result)
+    if not raw_json or not isinstance(raw_json, list):
+        return []
+
+    # Parse into Task objects
+    tasks = []
+    for item in raw_json:
+        if not isinstance(item, dict) or "title" not in item or "horizon" not in item:
+            continue
+        try:
+            horizon = models.HorizonEnum(item["horizon"])
+            tasks.append(
+                models.Task(
+                    user_id=user.id,
+                    title=item["title"],
+                    horizon=horizon,
+                    status=models.StatusEnum.todo,
+                    source="suggestion",
+                )
+            )
+        except (ValueError, KeyError):
+            continue  # Skip invalid horizon values
+    return tasks
 

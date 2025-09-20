@@ -75,13 +75,13 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
 
   const getNodeStroke = (task: Task) => {
     if (task.status === 'done') return '#22c55e'
-    if (task.status === 'todo') return '#facc15'
+    if (task.status === 'todo' || task.status === 'in_progress') return '#facc15'
     return '#6b7280'
   }
 
     const getNodeFill = (task: Task) => {
     if (task.status === 'done') return '#22c55e'
-    if (task.status === 'todo') return '#facc15'
+    if (task.status === 'todo' || task.status === 'in_progress') return '#facc15'
     return 'none'
   }
 
