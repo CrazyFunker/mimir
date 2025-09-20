@@ -180,33 +180,44 @@ export default function FocusPage() {
   }
 
   const handleTaskComplete = async (task: Task) => {
-    // Mark task as done
+    // Optimistically remove task from UI
     const updatedTasks = { ...tasks }
     const horizon = task.horizon as keyof TasksByHorizon
-    
-    updatedTasks[horizon] = (updatedTasks[horizon] || []).map(t => 
-      t.id === task.id ? { ...t, status: 'done' as const } : t
-    )
-    
+    updatedTasks[horizon] = (updatedTasks[horizon] || []).filter(t => t.id !== task.id)
     setTasks(updatedTasks)
-  setSelectedTask(null)
+    setSelectedTask(null)
     setLastCompletedTask(task)
-    
+
     // Show success animation
     setShowSuccess(true)
     setTimeout(() => {
       setShowSuccess(false)
       setShowUndo(true)
     }, 2000)
-    
+
     // Auto-hide undo after 10 seconds
     setTimeout(() => {
       setShowUndo(false)
     }, 10000)
-    // Fire and forget backend update
-    apiCompleteTask(task.id).catch(err => {
-      console.warn('Failed to persist completion, will revert on next refresh', err)
-    })
+
+    try {
+      await apiCompleteTask(task.id)
+      // Refetch tasks to get the updated list
+      const res = await getTasks()
+      if (res?.tasks) {
+        const grouped: TasksByHorizon = { today: [], week: [], month: [], past7d: [] }
+        res.tasks.forEach(t => {
+          if (t.horizon === 'today') grouped.today.push(t)
+          else if (t.horizon === 'week') grouped.week.push(t)
+          else if (t.horizon === 'month') grouped.month.push(t)
+          else if (t.horizon === 'past7d') (grouped.past7d!).push(t)
+        })
+        setTasks(grouped)
+      }
+    } catch (error) {
+      console.error("Failed to complete task:", error)
+      // TODO: Revert optimistic update on failure
+    }
   }
 
   const handleUndo = async () => {
