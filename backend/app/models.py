@@ -43,6 +43,7 @@ class Task(Base):
     source_url = Column(String, nullable=True)
     priority = Column(Float, nullable=True)
     confidence = Column(Float, nullable=True)
+    priority_factors = Column(JSON, nullable=True)
     due_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)

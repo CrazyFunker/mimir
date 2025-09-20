@@ -6,21 +6,40 @@ from app import models
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 import uuid
+from app.services.prioritise import refresh_priorities
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 @router.get("", response_model=TaskList)
 def list_tasks(horizon: Horizon | None = None, limit: int = 3, user=Depends(get_current_user), db=Depends(get_db)):
-    stmt = select(models.Task).where(models.Task.user_id == user.id)
+    # If specific horizon requested, just return up to limit ordered by priority
     if horizon:
-        stmt = stmt.where(models.Task.horizon == horizon.value)
-    # order by priority desc then created_at as fallback
-    stmt = stmt.order_by(models.Task.priority.desc().nullslast(), models.Task.created_at.asc())
-    if limit:
-        stmt = stmt.limit(limit)
-    tasks = db.scalars(stmt).all()
-    return {"tasks": tasks}
+        stmt = (
+            select(models.Task)
+            .where(models.Task.user_id == user.id, models.Task.horizon == horizon.value, models.Task.status != models.StatusEnum.done)
+            .order_by(models.Task.priority.desc().nullslast(), models.Task.created_at.asc())
+        )
+        if limit:
+            stmt = stmt.limit(limit)
+        tasks = db.scalars(stmt).all()
+        return {"tasks": tasks}
+    # aggregate all active tasks and select top N per horizon (today, week, month)
+    all_tasks = db.scalars(
+        select(models.Task).where(models.Task.user_id == user.id, models.Task.status != models.StatusEnum.done)
+        .order_by(models.Task.priority.desc().nullslast(), models.Task.created_at.asc())
+    ).all()
+    buckets = {"today": [], "week": [], "month": []}
+    for t in all_tasks:
+        hv = t.horizon.value if hasattr(t.horizon, 'value') else t.horizon
+        if hv in buckets and len(buckets[hv]) < limit:
+            buckets[hv].append(t)
+        # stop early if all filled
+        if all(len(buckets[k]) >= limit for k in buckets):
+            break
+    # flatten preserving order today->week->month
+    ordered = buckets["today"] + buckets["week"] + buckets["month"]
+    return {"tasks": ordered}
 
 
 @router.post("/{task_id}/complete")
@@ -62,4 +81,10 @@ def undo_task(task_id: str, user=Depends(get_current_user), db: Session = Depend
     task.completed_at = None
     db.add(models.Event(user_id=user.id, type="task_undo", payload={"task_id": str(task.id)}))
     db.flush()
+    return {"status": "ok"}
+
+
+@router.post("/recompute_priorities")
+def recompute_priorities(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    refresh_priorities(db, user.id)
     return {"status": "ok"}

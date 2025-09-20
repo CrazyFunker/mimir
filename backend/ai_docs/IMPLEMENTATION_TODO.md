@@ -175,16 +175,16 @@ tests/
 
 # J) CrewAI agents & prioritisation
 
-* [ ] Implement `services/agents.py` with roles: (NOT STARTED)
+* [x] Implement `services/agents.py` with roles (heuristic fallback + modern CrewAI orchestration behind flag):
+  * Upgraded to latest CrewAI (>=0.51) pattern using `Crew.kickoff()`; supports graceful fallback to `crew.run()` for older versions.
+  * Robust JSON extraction/validation: attempts `CrewOutput.json_dict`, then raw text extraction; clamps factor ranges.
+  * EmailMaster, JiraMaster, GithubMaster supply domain perspectives; FocusMaster synthesises factors (`urgency, importance, recency, source_signal, suggested_horizon`).
+  * Automatic fallback to heuristic strategy if CrewAI not installed, disabled via `ENABLE_CREWAI=false`, or output invalid.
+* [x] `services/prioritise.py`:
+  * Compute scalar `priority` score (weighted factors) and persist `priority_factors` JSON.
+  * Select top **3 per horizon** for focus endpoints.
 
-  * EmailMaster, JiraMaster, GithubMaster → enrich/label tasks.
-  * FocusMaster → score `urgency/importance/recency/source_signal` and propose `today|week|month`.
-* [ ] `services/prioritise.py`:
-
-  * Compute scalar `priority` score.
-  * Select top **3 per horizon** for focus endpoints; store scores in DB.
-
-**DoD:** `GET /api/tasks?horizon=today|week|month` returns ≤3 items per group with sensible ordering.
+**DoD:** `GET /api/tasks?horizon=today|week|month` returns ≤3 items per group with sensible ordering (CrewAI factors when enabled, else heuristic).
 
 ---
 
