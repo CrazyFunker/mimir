@@ -278,13 +278,14 @@ def generate_suggested_tasks(user: models.User) -> list[models.Task]:
     prompt = f"""Please generate 3-4 varied, realistic work-related tasks for a user. The user has no connected data sources, so make them general and creative.
 
 Return the tasks as a JSON array, where each object has:
-- "title": string (task description)
+- "title": string (task title)
+- "description": string (a brief, one-sentence description of the task)
 - "horizon": string, one of "today", "week", "month"
 
 Example format:
 [
-    {{"title": "Draft the Q4 marketing plan", "horizon": "week"}},
-    {{"title": "Book flights for the upcoming conference", "horizon": "today"}}
+    {{"title": "Draft the Q4 marketing plan", "description": "Create a comprehensive outline for the upcoming quarter's marketing initiatives.", "horizon": "week"}},
+    {{"title": "Book flights for the upcoming conference", "description": "Find and book cost-effective travel arrangements.", "horizon": "today"}}
 ]
 
 Your response should only contain the JSON array.
@@ -321,7 +322,7 @@ Your response should only contain the JSON array.
     tasks = []
     for i, item in enumerate(raw_json):
         print(f"[DEBUG] Processing item {i}: {item}")
-        if not isinstance(item, dict) or "title" not in item or "horizon" not in item:
+        if not isinstance(item, dict) or "title" not in item or "horizon" not in item or "description" not in item:
             print(f"[DEBUG] Skipping invalid item {i}: missing required fields")
             continue
         try:
@@ -329,6 +330,7 @@ Your response should only contain the JSON array.
             task = models.Task(
                 user_id=user.id,
                 title=item["title"],
+                description=item.get("description"),
                 horizon=horizon,
                 status=models.StatusEnum.todo,
                 source_kind="suggestion",

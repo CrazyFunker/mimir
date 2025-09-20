@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { getTasks, completeTask as apiCompleteTask, undoTask as apiUndoTask } from '@/lib/api'
+import { getTasks, completeTask as apiCompleteTask, undoTask as apiUndoTask, suggestTasks, getSuggestJobStatus } from '@/lib/api'
 import { Loader } from '@/components/loader'
 import { TaskCard } from '@/components/task-card'
 import { TaskDetail } from '@/components/task-detail'
@@ -86,38 +86,40 @@ export default function FocusPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [showUndo, setShowUndo] = useState(false)
   const [lastCompletedTask, setLastCompletedTask] = useState<Task | null>(null)
+  const [suggestionState, setSuggestionState] = useState<'idle' | 'loading' | 'polling' | 'error'>('idle')
+  const [suggestionJobId, setSuggestionJobId] = useState<string | null>(null)
 
   // Get all visible tasks in order for keyboard navigation
   const allTasks = [...tasks.today.slice(0, 3), ...tasks.week.slice(0, 3), ...tasks.month.slice(0, 3)]
 
+  const loadTasks = useCallback(async () => {
+    // No need for cancelled flag logic with useCallback if dependencies are correct
+    setLoading(true)
+    try {
+      const res = await getTasks()
+      if (res?.tasks) {
+        // Group tasks by horizon (fallback to existing structure keys)
+        const grouped: TasksByHorizon = { today: [], week: [], month: [], past7d: [] as any } as any
+        res.tasks.forEach(t => {
+          if (t.horizon === 'today') grouped.today.push(t)
+          else if (t.horizon === 'week') grouped.week.push(t)
+          else if (t.horizon === 'month') grouped.month.push(t)
+          else if (t.horizon === 'past7d') (grouped as any).past7d.push(t)
+        })
+        setTasks(grouped)
+      }
+    } catch (e) {
+      // Silent fallback to mockTasks
+      console.warn('Failed to load tasks from API, using mock', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   // Initial load from backend
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const res = await getTasks()
-        if (!cancelled && res?.tasks) {
-          // Group tasks by horizon (fallback to existing structure keys)
-            const grouped: TasksByHorizon = { today: [], week: [], month: [], past7d: [] as any } as any
-            res.tasks.forEach(t => {
-              if (t.horizon === 'today') grouped.today.push(t)
-              else if (t.horizon === 'week') grouped.week.push(t)
-              else if (t.horizon === 'month') grouped.month.push(t)
-              else if (t.horizon === 'past7d') (grouped as any).past7d.push(t)
-            })
-            setTasks(grouped)
-        }
-      } catch (e) {
-        // Silent fallback to mockTasks
-        console.warn('Failed to load tasks from API, using mock', e)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
+    loadTasks()
+  }, [loadTasks])
 
   // Keyboard navigation
   useEffect(() => {
@@ -174,6 +176,49 @@ export default function FocusPage() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [selectedTask, loading, selectedTaskIndex, allTasks, showUndo])
+
+  // Polling for suggestion job
+  useEffect(() => {
+    if (suggestionState !== 'polling' || !suggestionJobId) return
+
+    const interval = setInterval(async () => {
+      try {
+        const job = await getSuggestJobStatus(suggestionJobId)
+        if (job.status === 'completed') {
+          setSuggestionState('idle')
+          setSuggestionJobId(null)
+          clearInterval(interval)
+          // Refresh tasks now that the job is done
+          loadTasks()
+        } else if (job.status === 'failed') {
+          console.error('Suggestion job failed:', job)
+          setSuggestionState('error')
+          setSuggestionJobId(null)
+          clearInterval(interval)
+        }
+        // If 'running', continue polling
+      } catch (error) {
+        console.error('Failed to poll for suggestion job status:', error)
+        setSuggestionState('error')
+        setSuggestionJobId(null)
+        clearInterval(interval)
+      }
+    }, 2000) // Poll every 2 seconds
+
+    return () => clearInterval(interval)
+  }, [suggestionState, suggestionJobId, loadTasks])
+
+  const handleGenerateSuggestions = async () => {
+    setSuggestionState('loading')
+    try {
+      const { job_id } = await suggestTasks()
+      setSuggestionJobId(job_id)
+      setSuggestionState('polling')
+    } catch (error) {
+      console.error("Failed to start suggestion job:", error)
+      setSuggestionState('error')
+    }
+  }
 
   const handleTaskSelect = (task: Task) => {
     setSelectedTask(task)
@@ -268,8 +313,12 @@ export default function FocusPage() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>Nothing urgent today</p>
-              <button className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                Generate suggestions
+              <button 
+                onClick={handleGenerateSuggestions}
+                disabled={suggestionState === 'loading' || suggestionState === 'polling'}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+              >
+                {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
               </button>
             </div>
           )}
@@ -297,8 +346,12 @@ export default function FocusPage() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>No tasks planned for this week</p>
-              <button className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                Generate suggestions
+              <button 
+                onClick={handleGenerateSuggestions}
+                disabled={suggestionState === 'loading' || suggestionState === 'polling'}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+              >
+                {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
               </button>
             </div>
           )}
@@ -326,8 +379,12 @@ export default function FocusPage() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>No long-term tasks set</p>
-              <button className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                Generate suggestions
+              <button 
+                onClick={handleGenerateSuggestions}
+                disabled={suggestionState === 'loading' || suggestionState === 'polling'}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+              >
+                {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
               </button>
             </div>
           )}

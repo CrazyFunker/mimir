@@ -112,16 +112,59 @@ export async function completeTask(taskId: TaskId) {
 }
 
 export async function undoTask(taskId: TaskId) {
+  if (isUsingMocks()) return
+  try {
+    await internalFetch(`/api/tasks/${taskId}/undo`, { method: 'POST' })
+    resetAutoMockIfNeeded()
+  } catch (e) {
+    activateAutoMock('undoTask', e)
+  }
+}
+
+export async function suggestTasks(): Promise<{ job_id: string }> {
   if (isUsingMocks()) {
-    return { success: true }
+    console.log('[api] Mocking suggestTasks, returning mock job ID.')
+    return new Promise(resolve => setTimeout(() => resolve({ job_id: 'mock-job-id-123' }), 500))
   }
   try {
-    const res = await internalFetch<{ success: boolean; task?: Task }>(`/api/tasks/${taskId}/undo`, { method: 'POST' })
+    // The real API returns a 202 with the job object in the body
+    const res = await internalFetch<{ job_id: string }>('/api/tasks/suggest', { method: 'POST' })
     resetAutoMockIfNeeded()
     return res
   } catch (e) {
-    activateAutoMock('undoTask', e)
-    return { success: true }
+    activateAutoMock('suggestTasks', e)
+    // Fallback for when API fails but we want to mock success
+    return { job_id: 'mock-job-id-123-fallback' }
+  }
+}
+
+export async function getSuggestJobStatus(jobId: string) {
+  if (isUsingMocks()) {
+    console.log(`[api] Mocking getSuggestJobStatus for job ${jobId}.`)
+    return new Promise(resolve => setTimeout(() => resolve({
+      id: jobId,
+      status: 'completed',
+      job_type: 'suggest_tasks',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      result: { message: 'Mocked completion' }
+    }), 1500))
+  }
+  try {
+    const res = await internalFetch<any>(`/api/tasks/suggest/${jobId}`)
+    resetAutoMockIfNeeded()
+    return res
+  } catch (e) {
+    activateAutoMock('getSuggestJobStatus', e)
+    // Return a mock success for polling to complete
+    return {
+      id: jobId,
+      status: 'completed',
+      job_type: 'suggest_tasks',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      result: { message: 'Mocked completion on error' }
+    }
   }
 }
 
