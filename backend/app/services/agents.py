@@ -253,7 +253,7 @@ def generate_suggested_tasks(user: models.User) -> list[models.Task]:
         role="Assistant",
         goal="Brainstorm a few (3-4) realistic but varied work-related tasks a professional might need to do. The user has no connected tools, so these should be general purpose.",
         backstory="You are a helpful assistant.",
-        verbose=False,
+        verbose=True,
         allow_delegation=False,
         llm=llm,
     )
@@ -277,7 +277,7 @@ Your response should only contain the JSON array.
 
     # Simplified crew for just one agent/task
     print("[DEBUG] Creating Crew with 1 agent and 1 task")
-    crew = Crew(agents=[task_generator], tasks=[gen_task], verbose=0)
+    crew = Crew(agents=[task_generator], tasks=[gen_task], verbose=1)
     
     # Run the generation and extract JSON
     print("[DEBUG] Running crew.kickoff()")

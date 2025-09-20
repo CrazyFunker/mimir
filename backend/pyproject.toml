@@ -30,6 +30,7 @@ dependencies = [
   "atlassian-python-api>=4.0.7",
   "prometheus-fastapi-instrumentator>=7.1.0",
   "sse-starlette>=3.0.2",
+  "boto3>=1.40.35",
 ]
 
 [project.optional-dependencies]
