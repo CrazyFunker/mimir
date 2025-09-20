@@ -36,6 +36,20 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+  pgadmin:
+    image: dpage/pgadmin4:9
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mimir.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      # pgAdmin evaluates these as Python literals; use proper capitalization and list syntax
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: 'False'
+      PGADMIN_CONFIG_ALLOW_SPECIAL_EMAIL_DOMAINS: "['local']"
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
     ports:
@@ -44,4 +58,5 @@ services:
       - chroma-data:/chroma/.chroma
 volumes:
   pgdata:
+  pgadmin-data:
   chroma-data:

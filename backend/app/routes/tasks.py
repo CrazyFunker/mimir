@@ -11,11 +11,10 @@ from app.services.ingest import ingest_data_for_user
 from app.services.agents import generate_suggested_tasks
 from app.schemas import Job as JobSchema
 from sqlalchemy.exc import SQLAlchemyError
-try:
-    # Celery task (optional)
-    from app.worker.tasks import suggest_tasks_job  # type: ignore
-except Exception:  # pragma: no cover - celery optional
-    suggest_tasks_job = None  # type: ignore
+try:  # pragma: no cover - optional celery broker
+    from app.worker import celery_app  # type: ignore
+except Exception:  # pragma: no cover
+    celery_app = None  # type: ignore
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -162,12 +161,14 @@ def suggest_tasks(user=Depends(get_current_user), db: Session = Depends(get_db))
                 pass
 
     # Enqueue Celery task if available, else run inline
-    if suggest_tasks_job is not None:
-        try:  # pragma: no cover - celery path
-            suggest_tasks_job.delay(str(job.id), str(user.id))
+    dispatched = False
+    if celery_app is not None:
+        try:  # pragma: no cover
+            celery_app.send_task("suggest_tasks_job", args=[str(job.id), str(user.id)], queue="agent")
+            dispatched = True
         except Exception:
-            _inline_run(job.id, user.id)
-    else:
+            dispatched = False
+    if not dispatched:
         _inline_run(job.id, user.id)
 
     return {"job_id": str(job.id), "status": job.status}
