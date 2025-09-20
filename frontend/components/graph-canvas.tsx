@@ -203,39 +203,44 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
               }}
               onClick={() => handleNodeClick(node)}
             />
-            
-            {/* Hover tooltip */}
-            {hoveredNode === node.id && (
-              <g>
-                <rect
-                  x={node.x + 20}
-                  y={node.y - 30}
-                  width={150}
-                  height={40}
-                  fill="rgba(0,0,0,0.8)"
-                  rx="4"
-                />
-                <text
-                  x={node.x + 25}
-                  y={node.y - 15}
-                  fill="white"
-                  fontSize="12"
-                  fontWeight="bold"
-                >
-                  {node.task.title}
-                </text>
-                <text
-                  x={node.x + 25}
-                  y={node.y - 5}
-                  fill="white"
-                  fontSize="10"
-                >
-                  {node.task.horizon} • {node.task.status}
-                </text>
-              </g>
-            )}
           </g>
         ))}
+        
+        {/* Hover tooltip - rendered separately to be on top */}
+        {graphNodes.find(node => node.id === hoveredNode) && (() => {
+          const node = graphNodes.find(n => n.id === hoveredNode)!
+          const tooltipWidth = 180
+          const tooltipHeight = 55
+          return (
+            <g style={{ pointerEvents: 'none' }}>
+              <rect
+                x={node.x + 24}
+                y={node.y - tooltipHeight / 2}
+                width={tooltipWidth}
+                height={tooltipHeight}
+                fill="rgba(0,0,0,0.85)"
+                rx="6"
+              />
+              <text
+                x={node.x + 24 + 12}
+                y={node.y - 4}
+                fill="white"
+                fontSize="13"
+                fontWeight="bold"
+              >
+                {node.task.title}
+              </text>
+              <text
+                x={node.x + 24 + 12}
+                y={node.y + 14}
+                fill="#cbd5e1"
+                fontSize="11"
+              >
+                {node.task.horizon} • {node.task.status}
+              </text>
+            </g>
+          )
+        })()}
       </svg>
     </div>
   )
