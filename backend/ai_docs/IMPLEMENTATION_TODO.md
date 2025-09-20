@@ -1,0 +1,304 @@
+Below is an implementation TODO that an AI Agent can follow step-by-step. It’s split into compartmentalised subsystems. Each item is concrete and verifiable. Everything runs locally via Docker Compose.
+
+---
+
+# A) Project scaffolding & DX
+
+* [ ] Initialise repo: Python 3.11, FastAPI, Uvicorn, SQLAlchemy, Pydantic, Authlib, Celery, Redis, Chroma, CrewAI, litellm, httpx, python-dotenv, Alembic, pytest.
+* [ ] Use **UV** for fast dependency installation and management instead of pip/poetry.
+* [ ] Create project layout:
+
+```
+app/
+    main.py            # FastAPI init
+    config.py          # pydantic settings
+    deps.py            # DB session, auth deps
+    models.py          # SQLAlchemy ORM
+    schemas.py         # Pydantic I/O models
+    routes/            # API routers
+        tasks.py
+        graph.py
+        connectors.py
+        oauth.py
+        dev.py
+        health.py
+    services/
+        connectors/      # gmail.py, jira.py, github.py, gdrive.py, base.py
+        ingest.py
+        prioritise.py
+        graph.py
+        agents.py
+        embeddings.py
+        crypto.py
+        sse.py
+    worker/
+        __init__.py      # Celery app
+        tasks.py         # Celery task defs
+    db/
+        migrations/      # Alembic
+tests/
+```
+* [ ] Add `docker-compose.yml` with services: `api`, `worker`, `redis`, `db` (Postgres or Supabase), `chroma` (optional if using embedded), `proxy-litellm` (optional).
+* [ ] Add `Makefile`:
+    * `make up`, `make down`, `make fmt`, `make lint`, `make test`, `make migrate`, `make seed`.
+* [ ] Add `.env.example` and `.env` loader in `config.py`.
+* [ ] Enable OpenAPI docs at `/docs`.
+
+**DoD:** `docker compose up --build` exposes API on `http://localhost:8000/healthz`.
+
+---
+
+# B) Configuration & secrets
+
+* [ ] Implement `Settings` in `config.py` (env-driven):
+
+  * DB URI, Redis URL, Chroma path/host, LLM provider + keys, OAuth client IDs/secrets, encryption key, allowed CORS origins, dev user.
+* [ ] CORS: allow `http://localhost:3000`.
+* [ ] AES-GCM token encryption helper in `services/crypto.py` (Fernet or cryptography).
+
+**DoD:** `GET /readyz` returns 200 only if DB + Redis reachable.
+
+---
+
+# C) Database schema & migrations (Alembic)
+
+* [ ] Tables: `users`, `connectors`, `tasks`, `task_links`, `events`, `embeddings`.
+* [ ] Enums as CHECK constraints or SQLAlchemy enums.
+* [ ] Indices:
+
+  * `(user_id, horizon, status DESC, priority DESC)` on tasks
+  * `task_links.parent`, `task_links.child`
+  * `(user_id, kind)` on connectors
+* [ ] Generate and run initial migration.
+
+**DoD:** `alembic upgrade head` creates schema; `SELECT` works.
+
+---
+
+# D) Auth (dev-mode)
+
+* [ ] Implement simple dev auth dependency:
+
+  * If `X-Dev-User` header present → use that UUID.
+  * Else fallback to single seeded dev user.
+* [ ] (Optional) Wire Supabase Auth/JWT later behind a flag.
+
+**DoD:** All endpoints can identify a user in dev without OAuth.
+
+---
+
+# E) API skeleton (routers & schemas)
+
+* [ ] Pydantic models for `Task`, `Connector`, `GraphResponse`.
+* [ ] Routes:
+
+  * `GET /api/tasks?horizon=today|week|month|past7d&limit=3`
+  * `POST /api/tasks/{id}/complete`
+  * `POST /api/tasks/{id}/undo`
+  * `GET /api/graph?window=month`
+  * `GET /api/graph/filters`
+  * `GET /api/connectors`
+  * `POST /api/connectors/{kind}/connect`
+  * `GET /api/oauth/callback/{kind}`
+  * `POST /api/connectors/{kind}/test`
+  * `POST /api/connectors/test_all` (SSE stream)
+  * `POST /api/dev/seed`
+  * `GET /healthz`, `GET /readyz`
+
+**DoD:** All endpoints return stubbed but valid JSON.
+
+---
+
+# F) Connectors (OAuth + test + fetch)
+
+* [ ] `services/connectors/base.py` interface:
+
+  * `authorize() -> str`, `exchange_code(...)`, `refresh()`
+  * `test() -> ConnectorStatus`
+  * `fetch() -> list[Item]` (normalised item dicts)
+* [ ] Implement **Gmail** (Google), **Jira/Confluence** (Atlassian), **GitHub**, **Google Drive**:
+
+  * Store tokens encrypted.
+  * Minimal `test()` call (e.g., profile or list 1 item).
+  * `authorize()` builds provider URL; `oauth.py` handles callback.
+* [ ] Map provider errors → `status="error"` + `message="Press to retry"`.
+
+**DoD:** `POST /api/connectors/{kind}/test` returns `ok` on valid creds and `error` with message on failure.
+
+---
+
+# G) Ingestion pipeline (Celery)
+
+* [ ] Configure Celery app (`worker/__init__.py`) with Redis broker/result.
+* [ ] Queues: `ingest`, `embed`, `agent`, `test`.
+* [ ] Tasks in `worker/tasks.py`:
+
+  * `run_connector_test(kind, user_id)`
+  * `ingest_connector(kind, user_id)`
+  * `embed_items(user_id, items)`
+  * `run_agents(user_id)`
+* [ ] Triggers:
+
+  * After OAuth success → enqueue `ingest_connector`.
+  * `POST /api/connectors/test_all` → chain tests with progress events.
+
+**DoD:** Celery worker processes jobs; logs show queue activity.
+
+---
+
+# H) Normalisation & task creation
+
+* [ ] Define internal **Item → Task** mapping:
+
+  * title, description snippet, horizon (initial guess), source\_kind/ref/url, due (if present).
+* [ ] Dedupe identical items (same source\_ref or text similarity; see embeddings in next step).
+* [ ] Persist tasks with initial `status="todo"`.
+
+**DoD:** After `ingest_connector`, tasks exist in DB for the dev user.
+
+---
+
+# I) Embeddings & Chroma
+
+* [ ] Implement `services/embeddings.py`:
+
+  * `embed_texts(texts, meta) -> ids` using litellm provider.
+  * Namespace per user + source.
+* [ ] Add Chroma client:
+
+  * Embedded mode with `persist_directory` for local dev (or container service).
+* [ ] Use embeddings for dedupe (cosine > 0.85 → treat as same task candidate).
+
+**DoD:** Items are embedded and indexed; duplicates are not re-created as tasks.
+
+---
+
+# J) CrewAI agents & prioritisation
+
+* [ ] Implement `services/agents.py` with roles:
+
+  * EmailMaster, JiraMaster, GithubMaster → enrich/label tasks.
+  * FocusMaster → score `urgency/importance/recency/source_signal` and propose `today|week|month`.
+* [ ] `services/prioritise.py`:
+
+  * Compute scalar `priority` score.
+  * Select top **3 per horizon** for focus endpoints; store scores in DB.
+
+**DoD:** `GET /api/tasks?horizon=today|week|month` returns ≤3 items per group with sensible ordering.
+
+---
+
+# K) Graph builder
+
+* [ ] `services/graph.py`:
+
+  * Build edges using references (reply chains, issue links), temporal order, and agent hints.
+  * Lane assignment:
+
+    * `past7d`: completed within last 7 days
+    * `today|week|month`: by `horizon` and `status!="done"`
+* [ ] API `GET /api/graph` returns `{ nodes, edges }`.
+
+**DoD:** Graph response includes tasks and edges; completed tasks appear in `past7d` when done.
+
+---
+
+# L) Completion & undo
+
+* [ ] `POST /api/tasks/{id}/complete`: set `status="done"`, `completed_at=now()`, append audit event.
+* [ ] `POST /api/tasks/{id}/undo`: restore previous status (store prior state in `events` or a shadow column).
+* [ ] Ensure graph lanes update accordingly.
+
+**DoD:** Complete + undo cycle persists correctly and reflects in `/tasks` and `/graph`.
+
+---
+
+# M) Settings: “Test all” with SSE
+
+* [ ] Implement SSE utility in `services/sse.py`.
+* [ ] `POST /api/connectors/test_all`: for each connected kind:
+
+  * Emit `connecting` → run test → emit `ok` or `error` with message.
+* [ ] Frontend can subscribe to event stream; backend must flush events promptly.
+
+**DoD:** Curling the SSE endpoint shows per-connector progress messages ending in `ok`/`error`.
+
+---
+
+# N) Seed data & fixtures (for local UI)
+
+* [ ] `/api/dev/seed` to create:
+
+  * A dev user, three connectors in various states, and sample tasks:
+
+    * Titles resembling realistic items (e.g., “Email CTO”, “Update Kubernetes”, “Purge S3 Buckets”).
+  * A few edges for the graph.
+* [ ] Ensure `/tasks` respects the 3×3 cap with seeded priorities.
+
+**DoD:** Fresh stack + seed → `/tasks` and `/graph` return meaningful demo data.
+
+---
+
+# O) Observability
+
+* [ ] Structured JSON logging with request IDs; ASGI middleware adds `X-Request-ID`.
+* [ ] `/metrics` Prometheus endpoint:
+
+  * HTTP latencies, Celery job durations, provider API latencies.
+* [ ] (Optional) OpenTelemetry + local Jaeger docker service.
+
+**DoD:** Metrics scrapeable; logs contain correlation IDs.
+
+---
+
+# P) Security & compliance (dev-appropriate)
+
+* [ ] Encrypt tokens at rest; never log secrets.
+* [ ] Request size limits, timeouts, and retry/back-off for provider calls.
+* [ ] Scope tokens read-only where possible.
+* [ ] Add simple rate limiting (e.g., sliding window in Redis) for test endpoints.
+
+**DoD:** Secrets absent from logs; tokens are encrypted in DB.
+
+---
+
+# Q) Testing
+
+* [ ] Unit (pytest):
+
+  * Crypto helpers, prioritiser, graph lane logic, connector `test()` mapping.
+* [ ] Integration:
+
+  * Spin services with docker-compose in CI-like run; seed; hit `/tasks`, `/graph`, complete/undo; `/connectors/test_all` SSE.
+* [ ] Contract tests:
+
+  * Validate response shapes and key fields the frontend expects.
+* [ ] Lint/format: Ruff + Black pre-commit.
+
+**DoD:** `make test` green; minimal coverage threshold met (e.g., 70%+ core modules).
+
+---
+
+# R) Execution order (recommended)
+
+1. **A–D**: scaffolding, config, DB, dev auth
+2. **E**: API skeleton
+3. **N**: seed data (unblocks frontend)
+4. **L**: completion/undo
+5. **K**: graph builder
+6. **G–H–I–J**: ingestion → embeddings → agents → prioritisation
+7. **F**: real connector OAuth + test flows
+8. **M**: SSE “test all”
+9. **O–P–Q**: observability, security, tests
+
+---
+
+# S) Acceptance checklist (backend ready)
+
+* [ ] Local `docker compose up` starts API, worker, Redis, DB, (Chroma optional), and `/docs` works.
+* [ ] `/api/tasks` returns ≤3 tasks per horizon; completion/undo works.
+* [ ] `/api/graph` returns nodes/edges; completed tasks move to `past7d`.
+* [ ] `/api/connectors`, `/api/connectors/{kind}/connect`, callback, and `.../test` work in dev (ngrok if provider needs HTTPS).
+* [ ] `/api/connectors/test_all` streams per-connector status via SSE.
+* [ ] Seed endpoint produces realistic demo state for UI.
+* [ ] Tests pass; logs/metrics present; secrets protected.
