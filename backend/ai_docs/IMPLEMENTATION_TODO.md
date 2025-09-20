@@ -4,9 +4,9 @@ Below is an implementation TODO that an AI Agent can follow step-by-step. It’s
 
 # A) Project scaffolding & DX
 
-* [ ] Initialise repo: Python 3.11, FastAPI, Uvicorn, SQLAlchemy, Pydantic, Authlib, Celery, Redis, Chroma, CrewAI, litellm, httpx, python-dotenv, Alembic, pytest.
-* [ ] Use **UV** for fast dependency installation and management instead of pip/poetry.
-* [ ] Create project layout:
+* [x] Initialise repo: Python 3.11, FastAPI, Uvicorn, SQLAlchemy, Pydantic, Authlib, Celery, Redis, Chroma, CrewAI, litellm, httpx, python-dotenv, Alembic, pytest. (DONE)
+* [x] Use **UV** for fast dependency installation and management instead of pip/poetry. (DONE via Dockerfile uv install)
+* [x] Create project layout: (PARTIAL – service modules for connectors/ingest/prioritise/graph/agents/embeddings still to add)
 
 ```
 app/
@@ -38,11 +38,11 @@ app/
         migrations/      # Alembic
 tests/
 ```
-* [ ] Add `docker-compose.yml` with services: `api`, `worker`, `redis`, `db` (Postgres or Supabase), `chroma` (optional if using embedded), `proxy-litellm` (optional).
-* [ ] Add `Makefile`:
+* [x] Add `docker-compose.yml` with services: `api`, `worker`, `redis`, `db` (Postgres or Supabase), `chroma` (optional if using embedded), `proxy-litellm` (optional). (DONE – proxy not yet added)
+* [x] Add `Makefile`:
     * `make up`, `make down`, `make fmt`, `make lint`, `make test`, `make migrate`, `make seed`.
-* [ ] Add `.env.example` and `.env` loader in `config.py`.
-* [ ] Enable OpenAPI docs at `/docs`.
+* [x] Add `.env.example` and `.env` loader in `config.py`.
+* [x] Enable OpenAPI docs at `/docs`. (FastAPI default enabled)
 
 **DoD:** `docker compose up --build` exposes API on `http://localhost:8000/healthz`.
 
@@ -50,11 +50,11 @@ tests/
 
 # B) Configuration & secrets
 
-* [ ] Implement `Settings` in `config.py` (env-driven):
+* [x] Implement `Settings` in `config.py` (env-driven): (PARTIAL – missing Chroma path, LLM provider/keys, OAuth client IDs/secrets)
 
   * DB URI, Redis URL, Chroma path/host, LLM provider + keys, OAuth client IDs/secrets, encryption key, allowed CORS origins, dev user.
-* [ ] CORS: allow `http://localhost:3000`.
-* [ ] AES-GCM token encryption helper in `services/crypto.py` (Fernet or cryptography).
+* [x] CORS: allow `http://localhost:3000`.
+* [x] AES-GCM token encryption helper in `services/crypto.py` (cryptography AES-GCM implemented).
 
 **DoD:** `GET /readyz` returns 200 only if DB + Redis reachable.
 
@@ -62,14 +62,14 @@ tests/
 
 # C) Database schema & migrations (Alembic)
 
-* [ ] Tables: `users`, `connectors`, `tasks`, `task_links`, `events`, `embeddings`.
-* [ ] Enums as CHECK constraints or SQLAlchemy enums.
-* [ ] Indices:
+* [x] Tables: `users`, `connectors`, `tasks`, `task_links`, `events`, `embeddings`.
+* [x] Enums as CHECK constraints or SQLAlchemy enums. (Using SQLAlchemy string enums / plain strings in migration – OK for dev)
+* [x] Indices:
 
   * `(user_id, horizon, status DESC, priority DESC)` on tasks
   * `task_links.parent`, `task_links.child`
   * `(user_id, kind)` on connectors
-* [ ] Generate and run initial migration.
+* [x] Generate and run initial migration.
 
 **DoD:** `alembic upgrade head` creates schema; `SELECT` works.
 
@@ -77,7 +77,7 @@ tests/
 
 # D) Auth (dev-mode)
 
-* [ ] Implement simple dev auth dependency:
+* [x] Implement simple dev auth dependency:
 
   * If `X-Dev-User` header present → use that UUID.
   * Else fallback to single seeded dev user.
@@ -89,8 +89,8 @@ tests/
 
 # E) API skeleton (routers & schemas)
 
-* [ ] Pydantic models for `Task`, `Connector`, `GraphResponse`.
-* [ ] Routes:
+* [ ] Pydantic models for `Task`, `Connector`, `GraphResponse`. (PARTIAL – Task only implemented so far)
+* [x] Routes: (PARTIAL – core endpoints stubbed; missing `/api/connectors/test_all` SSE stream & full connector schemas)
 
   * `GET /api/tasks?horizon=today|week|month|past7d&limit=3`
   * `POST /api/tasks/{id}/complete`
@@ -105,7 +105,7 @@ tests/
   * `POST /api/dev/seed`
   * `GET /healthz`, `GET /readyz`
 
-**DoD:** All endpoints return stubbed but valid JSON.
+**DoD:** All endpoints return stubbed but valid JSON. (PARTIAL – remaining: test_all SSE, full connector data models)
 
 ---
 
