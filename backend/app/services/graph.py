@@ -45,4 +45,14 @@ def build_graph(db: Session, user_id: str, window: str = "month"):
 
     edges: List[Tuple[str, str]] = [(str(l.parent), str(l.child)) for l in links]
     
+    # Prevent KeyError for sub-tasks
+    _TASK_GRAPH = {str(task.id): {"task": task, "children": []} for task in tasks}
+    for t in tasks:
+        if t.source_kind == "task" and t.source_ref:
+            # This is a sub-task, add an edge from parent to child
+            # to capture dependency
+            if t.source_ref in _TASK_GRAPH:
+                _TASK_GRAPH[t.source_ref]["children"].append(t.id)
+                _TASK_GRAPH[t.id]["parent"] = t.source_ref
+
     return {"nodes": nodes, "edges": edges}
