@@ -1,4 +1,5 @@
 from celery import Celery
+from kombu import Queue
 from app.config import settings
 
 celery_app = Celery(
@@ -8,9 +9,13 @@ celery_app = Celery(
     include=["app.worker.tasks"],
 )
 
-celery_app.conf.task_queues = (
-    {"name": "ingest"},
-    {"name": "embed"},
-    {"name": "agent"},
-    {"name": "test"},
+celery_app.conf.update(
+    task_default_queue="default",
+    task_queues=[
+        Queue("default"),
+        Queue("ingest"),
+        Queue("embed"),
+        Queue("agent"),
+        Queue("test"),
+    ],
 )

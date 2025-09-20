@@ -12,9 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 
 COPY pyproject.toml /app/
 
-# Use uv for fast installs (curl script)
+# Install uv and resolve dependencies
+ENV PATH="/root/.local/bin:${PATH}"
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    /root/.cargo/bin/uv pip install --system -r <(/root/.cargo/bin/uv pip compile pyproject.toml)
+    uv pip compile pyproject.toml -o requirements.lock && \
+    uv pip install --system -r requirements.lock
 
 COPY . /app
 
