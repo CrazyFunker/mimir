@@ -331,7 +331,7 @@ Your response should only contain the JSON array.
                 title=item["title"],
                 horizon=horizon,
                 status=models.StatusEnum.todo,
-                source="suggestion",
+                source_kind="suggestion",
             )
             tasks.append(task)
             print(f"[DEBUG] Created task: {task.title} with horizon {horizon}")
