@@ -199,7 +199,7 @@ Created At: {task.created_at}
     )
 
     # Some newer CrewAI versions prefer specifying a process; fall back silently if not available
-    crew_kwargs = dict(agents=[email_agent, code_agent, issue_agent, focus_agent], tasks=[crew_task])
+    crew_kwargs = dict(agents=[email_agent, code_agent, issue_agent, focus_agent], tasks=[crew_task], share_crew=True)
     if Process is not None:
         crew_kwargs["process"] = getattr(Process, "sequential", None) or getattr(Process, "SEQUENTIAL", None) or Process  # type: ignore
 
@@ -296,7 +296,7 @@ Your response should only contain the JSON array.
 
     # Simplified crew for just one agent/task
     print("[DEBUG] Creating Crew with 1 agent and 1 task")
-    crew = Crew(agents=[task_generator], tasks=[gen_task], verbose=1)
+    crew = Crew(agents=[task_generator], tasks=[gen_task], verbose=1, share_crew=True)
     
     # Run the generation and extract JSON
     print("[DEBUG] Running crew.kickoff()")
