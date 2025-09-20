@@ -49,12 +49,14 @@ def _bedrock_embed(texts: List[str]) -> List[List[float]]:
     return vectors
 
 
-def embed_texts(texts: List[str], meta: Dict[str, Any]) -> list[str]:
+def embed_texts(texts: List[str], metadatas: List[Dict[str, Any]], ids: List[str]) -> list[str]:
     """Embed a list of texts for a single user and source-kind context.
 
-    meta requires: user_id, kind
+    metadatas requires: user_id, kind in each item
     """
-    user_id = meta.get("user_id")
+    if not texts:
+        return []
+    user_id = metadatas[0].get("user_id")
     if not user_id:
         raise ValueError("user_id required in meta for embedding")
     col = ensure_collection(user_id)
@@ -74,8 +76,11 @@ def embed_texts(texts: List[str], meta: Dict[str, Any]) -> list[str]:
         emb_fn = _default_embedding_fn()
         vectors = emb_fn(texts)  # type: ignore
         meta_provider = provider or "default"
-    ids = [str(uuid.uuid4()) for _ in texts]
-    metadatas = [{"kind": meta.get("kind"), "source": meta.get("source"), "version": 1, "provider": meta_provider}] * len(texts)
+    
+    # add provider to each metadata dict
+    for m in metadatas:
+        m["provider"] = meta_provider
+
     col.add(ids=ids, documents=texts, embeddings=vectors, metadatas=metadatas)
     return ids
 

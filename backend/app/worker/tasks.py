@@ -62,7 +62,14 @@ def ingest_connector(kind: str, user_id: str):
         if created_tasks:
             # TODO: make this async
             texts = [c.title for c in created_tasks]
-            embed_texts(texts, {"user_id": user_id, "kind": kind})
+            metadatas = [{"user_id": user_id, "kind": kind, "task_id": str(c.id)} for c in created_tasks]
+            ids = [str(c.id) for c in created_tasks]
+            embed_texts(texts, metadatas, ids)
+        
+        # Trigger agent-based prioritization
+        if created_tasks:
+            run_agents.delay(user_id)
+            
         return len(created_tasks)
 
 
@@ -72,5 +79,32 @@ def embed_items(user_id: str, items: list[dict]):  # placeholder
 
 
 @celery_app.task(name="run_agents", queue="agent")
-def run_agents(user_id: str):  # placeholder
-    return 0
+def run_agents(user_id: str):
+    from app.services import agents as agent_service
+    from app.services.prioritise import calculate_priority
+    
+    with session_scope() as db:
+        tasks_to_process = db.query(models.Task).filter(
+            models.Task.user_id == user_id,
+            models.Task.status != models.StatusEnum.done,
+            # To avoid re-processing, we could add a filter here, e.g., based on a timestamp
+            # or a flag indicating that the task has been prioritized.
+            # For now, we re-prioritize all active tasks.
+        ).all()
+        
+        count = 0
+        for task in tasks_to_process:
+            try:
+                factors = agent_service.get_factors(task)
+                task.priority_factors = factors
+                task.priority = calculate_priority(factors)
+                if factors.get("suggested_horizon"):
+                    task.horizon = models.HorizonEnum(factors["suggested_horizon"])
+                db.add(task)
+                count += 1
+            except Exception as e:
+                # TODO: proper logging
+                print(f"Failed to prioritize task {task.id}: {e}")
+                continue
+        db.commit()
+    return count

@@ -158,7 +158,6 @@ Created At: {task.created_at}
 
     crew_task = CrewTask(
         description=prompt,
-        agent=focus_agent,
         expected_output="Strict JSON object with keys: urgency, importance, recency, source_signal, suggested_horizon",
     )
 

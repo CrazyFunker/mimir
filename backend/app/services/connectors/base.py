@@ -5,6 +5,7 @@ from authlib.integrations.httpx_client import OAuth2Client
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from atlassian import Jira
 
 
 class ConnectorStatus(str):
@@ -170,8 +171,6 @@ class GoogleDriveConnector(GoogleBaseConnector):
         return items
 
 
-from atlassian import Jira
-# ... existing code ...
 class JiraConnector(BaseConnector):
     kind = "jira"
 
@@ -228,21 +227,69 @@ class JiraConnector(BaseConnector):
         return {"status": "ok"}
 
     def fetch(self) -> List[Dict[str, Any]]:
-        # This requires the site URL and cloud_id stored in the connector's meta field.
-        # The API client would be initialized like this:
-        # jira = Jira(url=meta['url'], cloud=True, oauth2={...})
-        return []
+        if not self.access_token or not self.access_token.get("meta"):
+            raise Exception("Jira connector not fully configured, missing meta field with url")
+        
+        site_url = self.access_token["meta"]["url"]
+        
+        jira = Jira(
+            url=site_url,
+            oauth2={
+                "client_id": self.config.oauth_atlassian_client_id,
+                "token": {"access_token": self.access_token["access_token"], "token_type": "Bearer"},
+            },
+            cloud=True,
+        )
+        
+        jql_query = "assignee = currentUser() AND status != Done"
+        issues = jira.jql(jql_query, limit=20)
+        
+        items = []
+        for issue in issues.get("issues", []):
+            fields = issue.get("fields", {})
+            items.append({
+                "title": fields.get("summary"),
+                "description": fields.get("description"),
+                "source_ref": issue.get("key"),
+                "source_url": f"{site_url}/browse/{issue.get('key')}",
+                "meta": {
+                    "project": fields.get("project", {}).get("name"),
+                    "status": fields.get("status", {}).get("name"),
+                    "reporter": fields.get("reporter", {}).get("displayName"),
+                }
+            })
+        return items
 
-# ... existing code ...
+
 class GithubConnector(BaseConnector):
-# ... existing code ...
+    kind = "github"
+
+    def __init__(self, user_id: str, config: Any, access_token: str | None = None):
+        super().__init__(user_id, config, access_token)
+        self.client = OAuth2Client(
+            client_id=self.config.oauth_github_client_id,
+            client_secret=self.config.oauth_github_client_secret,
+            redirect_uri=f"{self.config.oauth_redirect_base}/oauth/callback/github",
+            scope="repo user",
+            authorization_endpoint="https://github.com/login/oauth/authorize",
+            token_endpoint="https://github.com/login/oauth/access_token",
+        )
+
+    def authorize(self) -> str:
+        url, _ = self.client.create_authorization_url()
+        return url
+
     def exchange_code(self, code: str) -> dict:
         token_data = self.client.fetch_token(code=code, grant_type="authorization_code")
         return {
             "access_token": token_data["access_token"],
             "scopes": token_data.get("scope"),
         }
-# ... existing code ...
+
+    def refresh(self) -> None:
+        # GitHub OAuth tokens do not expire, so no refresh logic is implemented.
+        pass
+
     def test(self) -> dict:
         try:
             resp = self.client.get("https://api.github.com/user", token={"access_token": self.access_token, "token_type": "bearer"})
@@ -252,12 +299,15 @@ class GithubConnector(BaseConnector):
             return {"status": "error", "message": str(e)}
 
     def fetch(self) -> List[Dict[str, Any]]:
-        resp = self.client.get(
+        # Fetch assigned issues
+        resp_issues = self.client.get(
             "https://api.github.com/issues",
             params={"filter": "assigned", "state": "open"},
             token={"access_token": self.access_token, "token_type": "bearer"}
         )
-        issues = resp.json()
+        resp_issues.raise_for_status()
+        issues = resp_issues.json()
+        
         items = []
         for issue in issues:
             items.append({
@@ -268,13 +318,36 @@ class GithubConnector(BaseConnector):
                 "meta": {
                     "repo": issue["repository"]["full_name"],
                     "labels": [label["name"] for label in issue["labels"]],
+                    "type": "issue",
                 }
             })
+
+        # Fetch assigned pull requests
+        resp_prs = self.client.get(
+            "https://api.github.com/search/issues",
+            params={"q": "is:pr is:open assignee:@me"},
+            token={"access_token": self.access_token, "token_type": "bearer"}
+        )
+        resp_prs.raise_for_status()
+        prs = resp_prs.json().get("items", [])
+
+        for pr in prs:
+            items.append({
+                "title": pr["title"],
+                "description": pr["body"],
+                "source_ref": pr["number"],
+                "source_url": pr["html_url"],
+                "meta": {
+                    "repo": pr["repository_url"].split("repos/")[1],
+                    "labels": [label["name"] for label in pr["labels"]],
+                    "type": "pull_request",
+                }
+            })
+            
         return items
 
 
-def get_connector(kind: str, user_id: str, config: Any, access_token: str | None = None) -> BaseConnector:
-# ... existing code ...
+def get_connector_by_kind(kind: str) -> type[BaseConnector]:
     mapping = {
         "gmail": GmailConnector,
         "jira": JiraConnector,
@@ -284,5 +357,5 @@ def get_connector(kind: str, user_id: str, config: Any, access_token: str | None
     cls = mapping.get(kind)
     if not cls:
         raise ValueError(f"Unsupported connector kind {kind}")
-    return cls(user_id=user_id, config=config, access_token=access_token)
+    return cls
 
