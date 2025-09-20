@@ -7,13 +7,16 @@ interface TaskCardProps {
   title: string
   description?: string
   externalRef?: string
+  selected?: boolean
   onClick?: () => void
 }
 
-export function TaskCard({ title, description, externalRef, onClick }: TaskCardProps) {
+export function TaskCard({ title, description, externalRef, selected, onClick }: TaskCardProps) {
+  const selectedStyles = selected ? "ring-2 ring-ring bg-accent" : ""
+  
   return (
     <div 
-      className="p-4 border rounded-lg cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all group bg-card"
+      className={`p-4 border rounded-lg cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all group bg-card ${selectedStyles}`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between">

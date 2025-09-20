@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Loader } from '@/components/loader'
 import { TaskCard } from '@/components/task-card'
 import { TaskDetail } from '@/components/task-detail'
@@ -81,9 +81,13 @@ export default function FocusPage() {
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<TasksByHorizon>(mockTasks)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [selectedTaskIndex, setSelectedTaskIndex] = useState(0)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showUndo, setShowUndo] = useState(false)
   const [lastCompletedTask, setLastCompletedTask] = useState<Task | null>(null)
+
+  // Get all visible tasks in order for keyboard navigation
+  const allTasks = [...tasks.today.slice(0, 3), ...tasks.week.slice(0, 3), ...tasks.month.slice(0, 3)]
 
   useEffect(() => {
     // Simulate loading delay
@@ -93,6 +97,62 @@ export default function FocusPage() {
 
     return () => clearTimeout(timer)
   }, [])
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle keyboard shortcuts if detail modal is open or loading
+      if (selectedTask || loading) {
+        // Handle keyboard shortcuts within the detail modal
+        if (selectedTask) {
+          switch (event.key) {
+            case 'Escape':
+              handleBack()
+              event.preventDefault()
+              break
+            case 'Enter':
+              if (event.metaKey || event.ctrlKey) {
+                handleTaskComplete(selectedTask)
+                event.preventDefault()
+              }
+              break
+          }
+        }
+        return
+      }
+
+      switch (event.key) {
+        case 'ArrowUp':
+          setSelectedTaskIndex(prev => Math.max(0, prev - 1))
+          event.preventDefault()
+          break
+        case 'ArrowDown':
+          setSelectedTaskIndex(prev => Math.min(allTasks.length - 1, prev + 1))
+          event.preventDefault()
+          break
+        case 'Enter':
+          if (allTasks[selectedTaskIndex]) {
+            if (event.metaKey || event.ctrlKey) {
+              handleTaskComplete(allTasks[selectedTaskIndex])
+            } else {
+              handleTaskSelect(allTasks[selectedTaskIndex])
+            }
+            event.preventDefault()
+          }
+          break
+        case 'u':
+        case 'U':
+          if (!event.metaKey && !event.ctrlKey && !event.altKey && showUndo) {
+            handleUndo()
+            event.preventDefault()
+          }
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedTask, loading, selectedTaskIndex, allTasks, showUndo])
 
   const handleTaskSelect = (task: Task) => {
     setSelectedTask(task)
@@ -156,12 +216,13 @@ export default function FocusPage() {
         <h2 className="text-xl font-semibold mb-4">Today</h2>
         <div className="space-y-3">
           {tasks.today.length > 0 ? (
-            tasks.today.slice(0, 3).map(task => (
+            tasks.today.slice(0, 3).map((task, index) => (
               <TaskCard 
                 key={task.id}
                 title={task.title}
                 description={task.description}
                 externalRef={task.external?.ref}
+                selected={selectedTaskIndex === index}
                 onClick={() => handleTaskSelect(task)}
               />
             ))
@@ -181,15 +242,19 @@ export default function FocusPage() {
         <h2 className="text-xl font-semibold mb-4">This week</h2>
         <div className="space-y-3">
           {tasks.week.length > 0 ? (
-            tasks.week.slice(0, 3).map(task => (
-              <TaskCard 
-                key={task.id}
-                title={task.title}
-                description={task.description}
-                externalRef={task.external?.ref}
-                onClick={() => handleTaskSelect(task)}
-              />
-            ))
+            tasks.week.slice(0, 3).map((task, index) => {
+              const globalIndex = tasks.today.slice(0, 3).length + index
+              return (
+                <TaskCard 
+                  key={task.id}
+                  title={task.title}
+                  description={task.description}
+                  externalRef={task.external?.ref}
+                  selected={selectedTaskIndex === globalIndex}
+                  onClick={() => handleTaskSelect(task)}
+                />
+              )
+            })
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>No tasks planned for this week</p>
@@ -206,15 +271,19 @@ export default function FocusPage() {
         <h2 className="text-xl font-semibold mb-4">This month</h2>
         <div className="space-y-3">
           {tasks.month.length > 0 ? (
-            tasks.month.slice(0, 3).map(task => (
-              <TaskCard 
-                key={task.id}
-                title={task.title}
-                description={task.description}
-                externalRef={task.external?.ref}
-                onClick={() => handleTaskSelect(task)}
-              />
-            ))
+            tasks.month.slice(0, 3).map((task, index) => {
+              const globalIndex = tasks.today.slice(0, 3).length + tasks.week.slice(0, 3).length + index
+              return (
+                <TaskCard 
+                  key={task.id}
+                  title={task.title}
+                  description={task.description}
+                  externalRef={task.external?.ref}
+                  selected={selectedTaskIndex === globalIndex}
+                  onClick={() => handleTaskSelect(task)}
+                />
+              )
+            })
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>No long-term tasks set</p>
