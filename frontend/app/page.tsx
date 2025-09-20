@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getTasks, completeTask as apiCompleteTask, undoTask as apiUndoTask } from '@/lib/api'
 import { Loader } from '@/components/loader'
 import { TaskCard } from '@/components/task-card'
 import { TaskDetail } from '@/components/task-detail'
@@ -89,13 +90,33 @@ export default function FocusPage() {
   // Get all visible tasks in order for keyboard navigation
   const allTasks = [...tasks.today.slice(0, 3), ...tasks.week.slice(0, 3), ...tasks.month.slice(0, 3)]
 
+  // Initial load from backend
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 2000)
-
-    return () => clearTimeout(timer)
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await getTasks()
+        if (!cancelled && res?.tasks) {
+          // Group tasks by horizon (fallback to existing structure keys)
+            const grouped: TasksByHorizon = { today: [], week: [], month: [], past7d: [] as any } as any
+            res.tasks.forEach(t => {
+              if (t.horizon === 'today') grouped.today.push(t)
+              else if (t.horizon === 'week') grouped.week.push(t)
+              else if (t.horizon === 'month') grouped.month.push(t)
+              else if (t.horizon === 'past7d') (grouped as any).past7d.push(t)
+            })
+            setTasks(grouped)
+        }
+      } catch (e) {
+        // Silent fallback to mockTasks
+        console.warn('Failed to load tasks from API, using mock', e)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [])
 
   // Keyboard navigation
@@ -158,7 +179,7 @@ export default function FocusPage() {
     setSelectedTask(task)
   }
 
-  const handleTaskComplete = (task: Task) => {
+  const handleTaskComplete = async (task: Task) => {
     // Mark task as done
     const updatedTasks = { ...tasks }
     const horizon = task.horizon as keyof TasksByHorizon
@@ -168,7 +189,7 @@ export default function FocusPage() {
     )
     
     setTasks(updatedTasks)
-    setSelectedTask(null)
+  setSelectedTask(null)
     setLastCompletedTask(task)
     
     // Show success animation
@@ -182,9 +203,13 @@ export default function FocusPage() {
     setTimeout(() => {
       setShowUndo(false)
     }, 10000)
+    // Fire and forget backend update
+    apiCompleteTask(task.id).catch(err => {
+      console.warn('Failed to persist completion, will revert on next refresh', err)
+    })
   }
 
-  const handleUndo = () => {
+  const handleUndo = async () => {
     if (lastCompletedTask) {
       const updatedTasks = { ...tasks }
       const horizon = lastCompletedTask.horizon as keyof TasksByHorizon
@@ -196,6 +221,9 @@ export default function FocusPage() {
       setTasks(updatedTasks)
       setShowUndo(false)
       setLastCompletedTask(null)
+      apiUndoTask(lastCompletedTask.id).catch(err => {
+        console.warn('Failed to persist undo', err)
+      })
     }
   }
 
