@@ -29,6 +29,14 @@ cp .env.example .env.local
 
 If you do not have an `.env.example` yet, create `.env.local` manually (see below).
 
+You can reuse the provided `.env.example` as a starting point:
+
+```bash
+cp .env.example .env.local
+```
+
+Then edit values (e.g. switch `NEXT_PUBLIC_USE_MOCKS=true` when you want explicit mock mode). Commit **only** `.env.example`; keep `.env.local` out of version control.
+
 ## Environment Variables
 
 All variables that need to reach the browser must be prefixed with `NEXT_PUBLIC_`.
