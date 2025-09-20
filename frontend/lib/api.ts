@@ -188,7 +188,7 @@ export async function getHealth() {
     return { status: 'ok', version: 'mock' }
   }
   try {
-    const res = await internalFetch<{ status: string; version?: string }>('/api/health', { retry: 0 })
+    const res = await internalFetch<{ status: string; version?: string }>('/healthz', { retry: 0 })
     if (!res || typeof (res as any).status !== 'string') {
       console.warn('[api] Health schema unexpected:', res)
       return { status: 'unreachable' }
