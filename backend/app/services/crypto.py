@@ -30,3 +30,9 @@ def decrypt(token: str) -> str:
     aes = AESGCM(_get_key())
     pt = aes.decrypt(nonce, ct, None)
     return pt.decode()
+
+
+def decrypt_token(token: str) -> dict:
+    import json
+    decrypted_str = decrypt(token)
+    return json.loads(decrypted_str)

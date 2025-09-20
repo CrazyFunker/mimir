@@ -48,6 +48,12 @@ class ConnectorList(BaseModel):
     connectors: List[Connector]
 
 
+class ConnectorTestResult(BaseModel):
+    kind: str
+    status: str
+    message: Optional[str] = None
+
+
 class GraphResponse(BaseModel):
     nodes: List[Task]
     edges: List[List[uuid.UUID]]
