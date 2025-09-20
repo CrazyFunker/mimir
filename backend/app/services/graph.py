@@ -1,11 +1,11 @@
 from app import models
 from sqlalchemy.orm import Session
 from typing import List, Tuple, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def build_graph(db: Session, user_id: str, window: str = "month"):
     # Define time windows
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if window == "month":
         start_date = now - timedelta(days=30)
     elif window == "week":

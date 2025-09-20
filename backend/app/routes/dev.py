@@ -3,7 +3,7 @@ from app.deps import get_current_user, get_db
 from app import models
 from sqlalchemy import select
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/dev", tags=["dev"])
 
@@ -31,11 +31,11 @@ def seed(db=Depends(get_db), user=Depends(get_current_user)):
         # This Month
         {"title": "Plan team offsite for Q4", "horizon": "month", "priority": 0.70},
         {"title": "Research new database technologies for performance improvements", "horizon": "month", "priority": 0.65},
-        {"title": "Complete mandatory compliance training", "horizon": "month", "priority": 0.50, "due_date": datetime.utcnow() + timedelta(days=20)},
+        {"title": "Complete mandatory compliance training", "horizon": "month", "priority": 0.50, "due_date": datetime.now(timezone.utc) + timedelta(days=20)},
 
         # Completed
-        {"title": "Deploy v2.5.1 to production", "horizon": "past7d", "priority": 0.9, "status": "done", "completed_at": datetime.utcnow() - timedelta(days=1)},
-        {"title": "Submit expense report for August", "horizon": "past7d", "priority": 0.6, "status": "done", "completed_at": datetime.utcnow() - timedelta(days=3)},
+        {"title": "Deploy v2.5.1 to production", "horizon": "past7d", "priority": 0.9, "status": "done", "completed_at": datetime.now(timezone.utc) - timedelta(days=1)},
+        {"title": "Submit expense report for August", "horizon": "past7d", "priority": 0.6, "status": "done", "completed_at": datetime.now(timezone.utc) - timedelta(days=3)},
     ]
     
     created_tasks = {}
