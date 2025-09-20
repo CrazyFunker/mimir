@@ -100,6 +100,40 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
         
+        {/* Horizon boundary lines */}
+        {[120, 200, 280].map((y) => (
+          <line
+            key={y}
+            x1="0"
+            y1={y}
+            x2="700"
+            y2={y}
+            stroke="#d1d5db"
+            strokeWidth="1"
+            strokeDasharray="4,4"
+          />
+        ))}
+
+        {/* Horizon labels centered between lines */}
+        {[
+          { y: 60, label: 'Past 7 Days' }, // between top and 120
+          { y: 160, label: 'Today' },      // between 120 and 200
+          { y: 240, label: 'This Week' },  // between 200 and 280
+          { y: 332, label: 'This Month' }  // between 280 and bottom (~384)
+        ].map(({ y, label }) => (
+          <text
+            key={label}
+            x="10"
+            y={y}
+            fill="#9ca3af"
+            fontSize="10"
+            fontWeight="medium"
+            className="uppercase tracking-wider"
+          >
+            {label}
+          </text>
+        ))}
+        
         {/* Render edges */}
         {edges.map(([fromId, toId], index) => {
           const fromNode = graphNodes.find(n => n.id === fromId)
