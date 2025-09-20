@@ -264,9 +264,10 @@ tests/
 
 # Q) Testing
 
-* [ ] Unit (pytest): (Only health tests exist – expand needed)
+* [ ] Unit (pytest): (Health + agents factor extraction tests now exist – expand further)
 
-  * Crypto helpers, prioritiser, graph lane logic, connector `test()` mapping.
+  * Added: `_extract_json_like` parsing and `get_factors` (heuristic + mocked CrewAI path).
+  * Next: Crypto helpers, prioritiser weighting, graph lane logic, connector `test()` mapping.
 * [ ] Integration:
 
   * Spin services with docker-compose in CI-like run; seed; hit `/tasks`, `/graph`, complete/undo; `/connectors/test_all` SSE.
