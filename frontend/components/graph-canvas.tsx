@@ -209,34 +209,81 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
         {/* Hover tooltip - rendered separately to be on top */}
         {graphNodes.find(node => node.id === hoveredNode) && (() => {
           const node = graphNodes.find(n => n.id === hoveredNode)!
-          const tooltipWidth = 180
-          const tooltipHeight = 55
+          // Dynamic text wrapping + sizing
+          const maxCharsPerLine = 32
+          const words = node.task.title.split(/\s+/)
+          const lines: string[] = []
+          let current = ''
+          words.forEach(w => {
+            const test = current.length ? current + ' ' + w : w
+            if (test.length > maxCharsPerLine) {
+              if (current) lines.push(current)
+              current = w
+            } else {
+              current = test
+            }
+          })
+          if (current) lines.push(current)
+
+          const statusLine = `${node.task.horizon} • ${node.task.status}`
+          const charWidth = 7.2 // approximate average char width in px for font-size 13
+          const horizontalPadding = 24
+          const contentWidth = Math.max(
+            ...[...lines, statusLine].map(l => l.length * charWidth),
+            120 // minimum width
+          )
+          let tooltipWidth = Math.ceil(contentWidth) + horizontalPadding
+          const lineHeight = 18
+          const verticalPadding = 16
+          const tooltipHeight = lines.length * lineHeight + lineHeight + verticalPadding // title lines + status line
+
+          // Positioning logic (avoid clipping right edge)
+          let tooltipX = node.x + 24
+          if (tooltipX + tooltipWidth > 700) {
+            tooltipX = node.x - 24 - tooltipWidth
+          }
+          // Clamp min X
+          if (tooltipX < 4) tooltipX = 4
+          const tooltipY = node.y - tooltipHeight / 2
+          // Ensure tooltip fully visible vertically
+          const minY = 4
+          const maxY = 384 - tooltipHeight - 4
+            
+          const finalY = Math.min(Math.max(tooltipY, minY), maxY)
+          const textStartX = tooltipX + 12
+          const firstLineY = finalY + 20
+
           return (
             <g style={{ pointerEvents: 'none' }}>
               <rect
-                x={node.x + 24}
-                y={node.y - tooltipHeight / 2}
+                x={tooltipX}
+                y={finalY}
                 width={tooltipWidth}
                 height={tooltipHeight}
                 fill="rgba(0,0,0,0.85)"
-                rx="6"
+                rx={8}
               />
+              {/* Title lines */}
+              {lines.map((line, idx) => (
+                <text
+                  key={idx}
+                  x={textStartX}
+                  y={firstLineY + idx * lineHeight}
+                  fill="white"
+                  fontSize={13}
+                  fontWeight="bold"
+                >
+                  {line}
+                </text>
+              ))}
+              {/* Status line */}
               <text
-                x={node.x + 24 + 12}
-                y={node.y - 4}
-                fill="white"
-                fontSize="13"
-                fontWeight="bold"
-              >
-                {node.task.title}
-              </text>
-              <text
-                x={node.x + 24 + 12}
-                y={node.y + 14}
+                x={textStartX}
+                y={firstLineY + lines.length * lineHeight}
                 fill="#cbd5e1"
-                fontSize="11"
+                fontSize={11}
               >
-                {node.task.horizon} • {node.task.status}
+                {statusLine}
               </text>
             </g>
           )
