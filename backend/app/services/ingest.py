@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime, timezone
 from app import models
 from app.services.embeddings import embed_texts, find_similar
 from app.config import settings
+from app.services.connectors.base import get_connector_by_kind
 
 
 def normalise_items(user_id, kind: str, raw_items: List[Dict[str, Any]]):
@@ -92,3 +93,26 @@ def ingest_connector(db: Session, user_id, connector: models.Connector, raw_item
             emb = models.Embedding(user_id=user_id, source_kind=connector.kind, source_id=str(task_obj.id), vector_id=vec_id, meta={"task_id": str(task_obj.id), "provider": "bedrock" if (getattr(settings, 'litellm_provider', '') or '').startswith('bedrock') else 'default'})
             db.add(emb)
     return created
+
+
+def ingest_data_for_user(db: Session, user_id):
+    """Fetch data from all of user's connected connectors and ingest."""
+    connectors = db.query(models.Connector).filter(models.Connector.user_id == user_id, models.Connector.status == "connected").all()
+    total_created = 0
+    for c in connectors:
+        try:
+            connector_cls = get_connector_by_kind(c.kind)
+            # TODO: this config passing is a bit of a mess
+            connector = connector_cls(user_id=user_id, config=settings, access_token=c.access_token)
+            raw_items = connector.fetch()
+            created = ingest_connector(db, user_id, c, raw_items)
+            total_created += len(created)
+            c.last_checked = datetime.now(timezone.utc)
+            db.add(c)
+        except Exception as e:
+            print(f"Error fetching from {c.kind}: {e}")
+            c.status = "error"
+            c.status_message = str(e)
+            db.add(c)
+    db.commit()
+    return total_created

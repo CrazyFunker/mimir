@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 import uuid
 from app.services.prioritise import refresh_priorities
+from app.services.ingest import ingest_data_for_user
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -90,5 +91,29 @@ def undo_task(task_id: str, user=Depends(get_current_user), db: Session = Depend
 
 @router.post("/recompute_priorities")
 def recompute_priorities(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    refresh_priorities(db, user.id)
+    return {"status": "ok"}
+
+
+@router.post("/suggest", status_code=202)
+def suggest_tasks(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    # 1. Refresh information from the connected connectors.
+    connectors = db.scalars(select(models.Connector).where(models.Connector.user_id == user.id, models.Connector.status == "connected")).all()
+    if connectors:
+        ingest_data_for_user(db, user.id)
+    else:
+        # 2. If there are no connected connectors, call an LLM to generate some new random tasks.
+        # Assuming a function generate_random_tasks exists that returns a list of tasks.
+        # This function would need to be implemented, likely using an LLM.
+        # For now, we'll mock this.
+        random_tasks = [
+            models.Task(user_id=user.id, title="Brainstorm new marketing strategies", horizon=models.HorizonEnum.week, status=models.StatusEnum.todo),
+            models.Task(user_id=user.id, title="Plan team offsite", horizon=models.HorizonEnum.month, status=models.StatusEnum.todo),
+            models.Task(user_id=user.id, title="Finish Q3 financial report", horizon=models.HorizonEnum.today, status=models.StatusEnum.todo),
+        ]
+        db.add_all(random_tasks)
+        db.commit()
+
+    # 3. Kick off the CrewAI agents to recompute priorities of tasks.
     refresh_priorities(db, user.id)
     return {"status": "ok"}
