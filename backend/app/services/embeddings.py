@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 import chromadb  # type: ignore
 from chromadb.utils import embedding_functions  # type: ignore
 from app.config import settings
+from litellm import embedding as litellm_embedding  # type: ignore
 import uuid
 
 _client = None
@@ -34,12 +35,18 @@ def ensure_collection(user_id: str):
     return col
 
 
-def _get_embedding_fn():
-    # Placeholder: use sentence-transformers default from chromadb if litellm not configured
-    if settings.litellm_provider:
-        # For now just fallback; real integration would call litellm embedding endpoint
-        pass
+def _default_embedding_fn():
     return embedding_functions.DefaultEmbeddingFunction()
+
+
+def _bedrock_embed(texts: List[str]) -> List[List[float]]:
+    # Use litellm to call bedrock embedding model; model name can be configured via litellm_provider or separate var
+    # Expect settings.litellm_provider like "bedrock/amazon.titan-embed-text-v2"
+    model = settings.litellm_provider.split("/", 1)[1] if settings.litellm_provider and "/" in settings.litellm_provider else "amazon.titan-embed-text-v2"
+    resp = litellm_embedding(model=model, input=texts)  # type: ignore
+    # litellm embedding responses unify into 'data' list with 'embedding'
+    vectors: List[List[float]] = [d["embedding"] for d in resp["data"]]  # type: ignore
+    return vectors
 
 
 def embed_texts(texts: List[str], meta: Dict[str, Any]) -> list[str]:
@@ -51,10 +58,24 @@ def embed_texts(texts: List[str], meta: Dict[str, Any]) -> list[str]:
     if not user_id:
         raise ValueError("user_id required in meta for embedding")
     col = ensure_collection(user_id)
-    emb_fn = _get_embedding_fn()
-    vectors = emb_fn(texts)  # type: ignore
+    provider = settings.litellm_provider or ""
+    vectors: List[List[float]]
+    meta_provider = None
+    if provider.startswith("bedrock"):
+        try:
+            vectors = _bedrock_embed(texts)
+            meta_provider = provider
+        except Exception:
+            # fallback
+            emb_fn = _default_embedding_fn()
+            vectors = emb_fn(texts)  # type: ignore
+            meta_provider = "fallback_default"
+    else:
+        emb_fn = _default_embedding_fn()
+        vectors = emb_fn(texts)  # type: ignore
+        meta_provider = provider or "default"
     ids = [str(uuid.uuid4()) for _ in texts]
-    metadatas = [{"kind": meta.get("kind"), "source": meta.get("source"), "version": 1}] * len(texts)
+    metadatas = [{"kind": meta.get("kind"), "source": meta.get("source"), "version": 1, "provider": meta_provider}] * len(texts)
     col.add(ids=ids, documents=texts, embeddings=vectors, metadatas=metadatas)
     return ids
 

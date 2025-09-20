@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
     aws_region: str | None = None
+    aws_bedrock_role: str | None = None  # IAM role to assume for Bedrock (e.g., devops-ai-developer)
 
     # OAuth client settings (placeholders for now)
     oauth_redirect_base: str | None = None

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import date
 from app import models
 from app.services.embeddings import embed_texts, find_similar
+from app.config import settings
 
 
 def normalise_items(user_id, kind: str, raw_items: List[Dict[str, Any]]):
@@ -88,6 +89,6 @@ def ingest_connector(db: Session, user_id, connector: models.Connector, raw_item
         ids = embed_texts([c.title for c in created], {"user_id": user_id, "kind": connector.kind})
         # record embedding rows
         for task_obj, vec_id in zip(created, ids):
-            emb = models.Embedding(user_id=user_id, source_kind=connector.kind, source_id=str(task_obj.id), vector_id=vec_id, meta={"task_id": str(task_obj.id)})
+            emb = models.Embedding(user_id=user_id, source_kind=connector.kind, source_id=str(task_obj.id), vector_id=vec_id, meta={"task_id": str(task_obj.id), "provider": "bedrock" if (getattr(settings, 'litellm_provider', '') or '').startswith('bedrock') else 'default'})
             db.add(emb)
     return created

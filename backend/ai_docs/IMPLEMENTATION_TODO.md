@@ -160,14 +160,14 @@ tests/
 
 # I) Embeddings & Chroma
 
-* [x] Implement `services/embeddings.py`: (Chroma client + default embedding function; litellm integration pending)
+* [x] Implement `services/embeddings.py`: (Chroma client + default embedding function; Bedrock via litellm integrated with fallback)
 
   * `embed_texts(texts, meta) -> ids` using litellm provider.
   * Namespace per user + source.
 * [x] Add Chroma client:
 
   * Embedded mode with `persist_directory` for local dev (or container service).
-* [x] Use embeddings for dedupe (cosine > 0.85 → treat as same task candidate). (Implemented with provisional distance <0.15 threshold; tune later)
+* [x] Use embeddings for dedupe (cosine > 0.85 → treat as same task candidate). (Implemented with provisional distance <0.15 threshold; tune later; provider metadata stored)
 
 **DoD:** Items are embedded and indexed; duplicates are not re-created as tasks.
 
