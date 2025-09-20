@@ -3,11 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import health, tasks, graph, connectors, oauth, dev
 import uvicorn, time, uuid, json, logging
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logger = logging.getLogger("mimir")
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 app = FastAPI(title="Mimir API", version="0.1.0")
+
+# Add Prometheus metrics
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,

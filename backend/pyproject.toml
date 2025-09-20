@@ -23,7 +23,12 @@ dependencies = [
   "python-dotenv>=1.0.1",
   "alembic>=1.13.1",
   "cryptography>=42.0.7",
-  "orjson>=3.10.0"
+  "orjson>=3.10.0",
+  "google-api-python-client>=2.182.0",
+  "google-auth-httplib2>=0.2.0",
+  "google-auth-oauthlib>=1.2.2",
+  "atlassian-python-api>=4.0.7",
+  "prometheus-fastapi-instrumentator>=7.1.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +44,9 @@ dev = [
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.ruff]
 line-length = 100

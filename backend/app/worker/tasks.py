@@ -3,6 +3,9 @@ from app.db import session_scope
 from app import models
 from app.services import ingest as ingest_service
 from app.services.embeddings import embed_texts
+from app.services.connectors.base import get_connector_by_kind
+from app.services.crypto import decrypt_token
+from app.services import normalization
 
 
 @celery_app.task(name="run_connector_test", queue="test")
@@ -11,26 +14,56 @@ def run_connector_test(kind: str, user_id: str):  # placeholder
 
 
 @celery_app.task(name="ingest_connector", queue="ingest")
-def ingest_connector(kind: str, user_id: str):  # basic placeholder logic
+def ingest_connector(kind: str, user_id: str):
     with session_scope() as db:
-        connector = (
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            # TODO: proper logging
+            print(f"User not found: {user_id}")
+            return 0
+
+        connector_model = (
             db.query(models.Connector)
             .filter(models.Connector.user_id == user_id, models.Connector.kind == kind)
             .first()
         )
-        if not connector:
+        if not connector_model or not connector_model.access_token:
+            print(f"Connector not configured for {kind} for user {user_id}")
             return 0
-        # Placeholder raw items
-        raw_items = [
-            {"id": f"{kind}-demo-1", "title": f"Demo item 1 from {kind}", "snippet": "Lorem ipsum"},
-            {"id": f"{kind}-demo-2", "title": f"Demo item 2 from {kind}", "snippet": "Dolor sit"},
-        ]
-        created = ingest_service.ingest_connector(db, user_id, connector, raw_items)
-        # enqueue embedding step synchronously for now
-        if created:
-            texts = [c.title for c in created]
+
+        connector_service = get_connector_by_kind(kind)
+        if not connector_service:
+            print(f"No connector service for kind: {kind}")
+            return 0
+
+        try:
+            token = decrypt_token(connector_model.access_token)
+            # special handling for jira
+            if kind == "jira" and connector_model.meta:
+                token["cloud_id"] = connector_model.meta.get("cloud_id")
+            connector_instance = connector_service(token=token)
+            raw_items = connector_instance.fetch()
+        except Exception as e:
+            # TODO: proper logging
+            print(f"Failed to fetch from {kind}: {e}")
+            # can also mark connector as failed
+            return 0
+
+        created_tasks = []
+        for item in raw_items:
+            try:
+                task = normalization.normalise_and_create_task(db, user, connector_model, item)
+                created_tasks.append(task)
+            except Exception as e:
+                # TODO: proper logging
+                print(f"Failed to normalise item {item.get('id')}: {e}")
+                continue
+        
+        if created_tasks:
+            # TODO: make this async
+            texts = [c.title for c in created_tasks]
             embed_texts(texts, {"user_id": user_id, "kind": kind})
-        return len(created)
+        return len(created_tasks)
 
 
 @celery_app.task(name="embed_items", queue="embed")

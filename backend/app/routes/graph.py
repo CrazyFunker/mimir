@@ -10,8 +10,8 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 
 @router.get("", response_model=GraphResponse)
 def get_graph(window: str = "month", user=Depends(get_current_user), db=Depends(get_db)):
-    tasks, edges = build_graph(db, user.id)
-    return {"nodes": tasks, "edges": edges}
+    graph_data = build_graph(db, str(user.id), window)
+    return graph_data
 
 
 @router.get("/filters")

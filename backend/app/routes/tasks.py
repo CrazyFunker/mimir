@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.schemas import TaskList, Horizon, Task
 from app.deps import get_current_user, get_db
-from sqlalchemy import select
+from sqlalchemy import select, cast, String
 from app import models
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -52,13 +52,13 @@ def complete_task(task_id: str, user=Depends(get_current_user), db: Session = De
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.status == models.StatusEnum.done:
-        return {"status": "ok"}
+        return {"status": "done"}
     prior = task.status
     task.status = models.StatusEnum.done
     task.completed_at = datetime.now(timezone.utc)
     db.add(models.Event(user_id=user.id, type="task_completed", payload={"task_id": str(task.id), "prior_status": prior.value}))
-    db.flush()
-    return {"status": "ok"}
+    db.commit()
+    return {"status": "done"}
 
 
 @router.post("/{task_id}/undo")
@@ -71,17 +71,21 @@ def undo_task(task_id: str, user=Depends(get_current_user), db: Session = Depend
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.status != models.StatusEnum.done:
-        return {"status": "ok"}
+        return {"status": task.status.value}
     # fetch last completion event for this task
-    event = db.query(models.Event).filter(models.Event.user_id == user.id, models.Event.type == "task_completed", models.Event.payload["task_id"].astext == str(task.id)).order_by(models.Event.ts.desc()).first()
+    event = db.query(models.Event).filter(
+        models.Event.user_id == user.id, 
+        models.Event.type == "task_completed", 
+        cast(models.Event.payload["task_id"], String) == str(task.id)
+    ).order_by(models.Event.ts.desc()).first()
     prior_status = models.StatusEnum.todo
     if event and event.payload and event.payload.get("prior_status") and event.payload["prior_status"] in models.StatusEnum.__members__:
         prior_status = models.StatusEnum(event.payload["prior_status"])  # type: ignore[arg-type]
     task.status = prior_status
     task.completed_at = None
     db.add(models.Event(user_id=user.id, type="task_undo", payload={"task_id": str(task.id)}))
-    db.flush()
-    return {"status": "ok"}
+    db.commit()
+    return {"status": prior_status.value}
 
 
 @router.post("/recompute_priorities")

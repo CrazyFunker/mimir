@@ -34,10 +34,13 @@ def oauth_callback(kind: str, code: str | None = None, user=Depends(get_current_
         db.flush()
     conn.status = "connected"
     conn.access_token = enc_access
+    # ... existing code ...
     conn.refresh_token = enc_refresh
     conn.expires_at = token_data.get("expires_at")
     conn.scopes = token_data.get("scopes")
+    conn.meta = token_data.get("meta")
     conn.message = None
     # trigger ingestion asynchronously
     celery_app.send_task("ingest_connector", args=[kind, str(user.id)], queue="ingest")
+# ... existing code ...
     return {"status": "connected", "kind": kind}
