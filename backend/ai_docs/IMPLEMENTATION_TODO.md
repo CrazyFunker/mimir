@@ -160,14 +160,14 @@ tests/
 
 # I) Embeddings & Chroma
 
-* [x] Implement `services/embeddings.py`: (Stub returning fake vector ids – real litellm/Chroma integration pending)
+* [x] Implement `services/embeddings.py`: (Chroma client + default embedding function; litellm integration pending)
 
   * `embed_texts(texts, meta) -> ids` using litellm provider.
   * Namespace per user + source.
-* [ ] Add Chroma client:
+* [x] Add Chroma client:
 
   * Embedded mode with `persist_directory` for local dev (or container service).
-* [ ] Use embeddings for dedupe (cosine > 0.85 → treat as same task candidate).
+* [x] Use embeddings for dedupe (cosine > 0.85 → treat as same task candidate). (Implemented with provisional distance <0.15 threshold; tune later)
 
 **DoD:** Items are embedded and indexed; duplicates are not re-created as tasks.
 

@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from datetime import date
 from app import models
+from app.services.embeddings import embed_texts, find_similar
 
 
 def normalise_items(user_id, kind: str, raw_items: List[Dict[str, Any]]):
@@ -39,7 +40,11 @@ def _parse_date(val):
 
 
 def dedupe_new(db: Session, user_id, tasks: list[dict]):
-    """Remove tasks whose (user_id, source_kind, source_ref) already exist."""
+    """Remove tasks whose (user_id, source_kind, source_ref) already exist or near-duplicates via embeddings.
+
+    Embedding similarity currently heuristic: if any existing vector within top_k returns distance < 0.15 treat as duplicate.
+    (Chroma distance for default embedding function is cosine; adapt threshold later.)
+    """
     if not tasks:
         return []
     refs = {(t["source_kind"], t["source_ref"]) for t in tasks if t.get("source_ref")}
@@ -52,7 +57,17 @@ def dedupe_new(db: Session, user_id, tasks: list[dict]):
         .all()
     )
     existing_set = {(ek, ev) for ek, ev in existing}
-    return [t for t in tasks if (t["source_kind"], t.get("source_ref")) not in existing_set]
+    filtered = []
+    for t in tasks:
+        key = (t["source_kind"], t.get("source_ref"))
+        if key in existing_set:
+            continue
+        # similarity check (simple) using title
+        similar = find_similar(user_id, t["title"], top_k=1)
+        if similar and similar[0].get("distance") is not None and similar[0]["distance"] < 0.15:
+            continue
+        filtered.append(t)
+    return filtered
 
 
 def persist_tasks(db: Session, tasks: list[dict]):
@@ -69,4 +84,10 @@ def ingest_connector(db: Session, user_id, connector: models.Connector, raw_item
     norm = normalise_items(user_id, connector.kind, raw_items)
     new_items = dedupe_new(db, user_id, norm)
     created = persist_tasks(db, new_items)
+    if created:
+        ids = embed_texts([c.title for c in created], {"user_id": user_id, "kind": connector.kind})
+        # record embedding rows
+        for task_obj, vec_id in zip(created, ids):
+            emb = models.Embedding(user_id=user_id, source_kind=connector.kind, source_id=str(task_obj.id), vector_id=vec_id, meta={"task_id": str(task_obj.id)})
+            db.add(emb)
     return created
