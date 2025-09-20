@@ -7,7 +7,6 @@ import json, re
 
 try:  # CrewAI is optional; code must operate without it
     from crewai import Agent, Task as CrewTask, Crew  # type: ignore
-    from crewai_tools.llms import ChatLiteLLM
     try:
         from crewai import Process  # >=0.50 style
     except Exception:  # older versions
@@ -17,7 +16,6 @@ except Exception:  # crewai not installed or import error
     CrewTask = None  # type: ignore
     Crew = None  # type: ignore
     Process = None  # type: ignore
-    ChatLiteLLM = None # type: ignore
 
 
 def _heuristic_urgency(task: models.Task) -> float:
@@ -232,8 +230,8 @@ def generate_suggested_tasks(user: models.User) -> list[models.Task]:
     print(f"[DEBUG] Generating suggested tasks for user {user.id} ({user.email if hasattr(user, 'email') else 'unknown'})")
     
     # crewai not available/installed
-    if Agent is None or ChatLiteLLM is None:
-        print("[DEBUG] Agent or ChatLiteLLM is None, returning empty list")
+    if Agent is None:
+        print("[DEBUG] Agent is None, returning empty list")
         return []
     try:
         from litellm import completion
@@ -244,8 +242,8 @@ def generate_suggested_tasks(user: models.User) -> list[models.Task]:
 
     llm = None
     if settings.crewai_model:
-        print(f"[DEBUG] Creating ChatLiteLLM with model: {settings.crewai_model}")
-        llm = ChatLiteLLM(model=settings.crewai_model)
+        print(f"[DEBUG] Using model: {settings.crewai_model}")
+        llm = settings.crewai_model
     else:
         print("[DEBUG] No crewai_model configured, using default LLM")
 
