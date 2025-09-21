@@ -4,7 +4,7 @@ Initial scaffolding. Run locally:
 
 ```
 cp .env.example .env
-docker compose up --build
+docker compose up --build -d
 ```
 
 Visit http://localhost:8000/docs
