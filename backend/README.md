@@ -2,8 +2,18 @@
 
 Initial scaffolding. Run locally:
 
-```
+```bash
 cp .env.example .env
+```
+
+Fill out `.env`, specifically the AWS credentials:
+```bash
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_SESSION_TOKEN=
+```
+
+```bash
 docker compose up --build -d
 ```
 
