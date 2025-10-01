@@ -17,18 +17,18 @@ export function TaskDetail({ title, description, externalUrl, onBack, onComplete
             Open external link
           </a>
         )}
-        <div className="flex gap-3 mt-6">
+        <div className="flex justify-between gap-3 mt-6">
           <button 
             onClick={onBack}
-            className="px-4 py-2 border border-gray-300 rounded"
+            className="px-4 py-2 border border-gray-300 hover:border-gray-400 rounded"
           >
-            BACK
+            Back
           </button>
           <button 
             onClick={onComplete}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
+            className="px-4 py-2 bg-green-200 border-2 hover:border-green-500 border-green-400 text-green-950 rounded"
           >
-            OK
+            Mark done ✅
           </button>
         </div>
       </div>

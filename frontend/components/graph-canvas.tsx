@@ -97,7 +97,7 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
 
   if (nodes.length === 0) {
     return (
-      <div className="w-full h-96 border rounded-lg bg-gray-50 flex items-center justify-center">
+      <div className="w-full h-96 border rounded-lg bg-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-2">No tasks to display</p>
           <p className="text-sm text-muted-foreground">Tasks will appear here as you create them</p>
@@ -107,7 +107,7 @@ export function GraphCanvas({ nodes, edges, onNodeSelect }: GraphCanvasProps) {
   }
 
   return (
-    <div className="w-full h-96 border rounded-lg bg-gray-50 relative overflow-hidden">
+    <div className="w-full h-96 border rounded-lg bg-white relative overflow-hidden">
       <svg
         ref={svgRef}
         width="100%"

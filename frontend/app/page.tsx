@@ -298,13 +298,18 @@ export default function FocusPage() {
   }
 
   return (
-    <div className="flex justify-center min-h-screen px-4 pt-32">
-      <div className="w-full max-w-6xl">
-        {/* Today Section */}
-        <section>
-          <h1 className="text-3xl font-semibold mb-8 text-center">Today</h1>
-          <div className="flex justify-center">
-            <div className="flex gap-4 flex-wrap justify-center">
+    <div className="min-h-screen px-4">
+      {/* Today Heading at Top */}
+      <div className="pt-8 pb-4">
+        <h1 className="text-3xl font-semibold text-center">Today</h1>
+      </div>
+
+      {/* Centered Tasks Section */}
+      <div className="flex justify-center pt-8">
+        <div className="w-full max-w-6xl">
+          <section>
+            <div className="flex justify-center">
+              <div className="flex gap-4 flex-wrap justify-center">
               {tasks.today.length > 0 ? (
                 tasks.today.map((task, index) => (
                   <div key={task.id} className="w-80">
@@ -327,11 +332,12 @@ export default function FocusPage() {
                   >
                     {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
                   </button>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       {/* Task Detail Modal */}

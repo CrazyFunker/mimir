@@ -164,62 +164,66 @@ export default function GraphPage() {
             📋 TODO ({tasks.filter(t => t.status !== 'done').length})
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">This month ({filteredTasks.length} tasks)</span>
+            <span className="text-sm text-muted-foreground">({filteredTasks.length} tasks)</span>
           </div>
         </div>
       </div>
 
       {/* Lane Labels */}
       <div className="mb-4">
-        <div className="grid grid-cols-4 gap-4 text-sm font-medium text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={filters.horizons.past7d}
-              onChange={(e) => setFilters(prev => ({
-                ...prev,
-                horizons: { ...prev.horizons, past7d: e.target.checked }
-              }))}
-              className="rounded"
-            />
+        <div className="flex flex-col gap-2 w-fit">
+          <button
+            onClick={() => setFilters(prev => ({
+              ...prev,
+              horizons: { ...prev.horizons, past7d: !prev.horizons.past7d }
+            }))}
+            className={`px-3 py-1 text-sm rounded transition-colors text-left ${
+              filters.horizons.past7d
+                ? 'bg-green-100 text-green-800 border border-green-400'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+            }`}
+          >
             Last 7 days
-          </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={filters.horizons.today}
-              onChange={(e) => setFilters(prev => ({
-                ...prev,
-                horizons: { ...prev.horizons, today: e.target.checked }
-              }))}
-              className="rounded"
-            />
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({
+              ...prev,
+              horizons: { ...prev.horizons, today: !prev.horizons.today }
+            }))}
+            className={`px-3 py-1 text-sm rounded transition-colors text-left ${
+              filters.horizons.today
+                ? 'bg-green-100 text-green-800 border border-green-400'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+            }`}
+          >
             Today
-          </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={filters.horizons.week}
-              onChange={(e) => setFilters(prev => ({
-                ...prev,
-                horizons: { ...prev.horizons, week: e.target.checked }
-              }))}
-              className="rounded"
-            />
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({
+              ...prev,
+              horizons: { ...prev.horizons, week: !prev.horizons.week }
+            }))}
+            className={`px-3 py-1 text-sm rounded transition-colors text-left ${
+              filters.horizons.week
+                ? 'bg-green-100 text-green-800 border border-green-400'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+            }`}
+          >
             This week
-          </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={filters.horizons.month}
-              onChange={(e) => setFilters(prev => ({
-                ...prev,
-                horizons: { ...prev.horizons, month: e.target.checked }
-              }))}
-              className="rounded"
-            />
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({
+              ...prev,
+              horizons: { ...prev.horizons, month: !prev.horizons.month }
+            }))}
+            className={`px-3 py-1 text-sm rounded transition-colors text-left ${
+              filters.horizons.month
+                ? 'bg-green-100 text-green-800 border border-green-400'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+            }`}
+          >
             This month
-          </div>
+          </button>
         </div>
       </div>
 
