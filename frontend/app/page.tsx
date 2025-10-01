@@ -8,6 +8,7 @@ import { TaskCard } from '@/components/task-card'
 import { TaskDetail } from '@/components/task-detail'
 import { SuccessRing } from '@/components/success-ring'
 import { Task, TasksByHorizon } from '@/lib/types'
+import loadingMessages from '@/lib/loading-messages.json'
 
 // Mock data for development
 const mockTasks: TasksByHorizon = {
@@ -89,6 +90,8 @@ export default function FocusPage() {
   const [lastCompletedTask, setLastCompletedTask] = useState<Task | null>(null)
   const [suggestionState, setSuggestionState] = useState<'idle' | 'loading' | 'polling' | 'error'>('idle')
   const [suggestionJobId, setSuggestionJobId] = useState<string | null>(null)
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState('')
+  const [displayedMessage, setDisplayedMessage] = useState('')
 
   // Get all visible tasks in order for keyboard navigation
   const allTasks = tasks.today
@@ -183,6 +186,50 @@ export default function FocusPage() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [selectedTask, loading, selectedTaskIndex, allTasks, showUndo])
+
+  // Rotate loading messages every 5 seconds
+  useEffect(() => {
+    if (suggestionState !== 'loading' && suggestionState !== 'polling') {
+      setCurrentLoadingMessage('')
+      setDisplayedMessage('')
+      return
+    }
+
+    // Set initial message immediately
+    const messages = loadingMessages.messages
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+    setCurrentLoadingMessage(randomMessage)
+
+    // Rotate message every 5 seconds
+    const interval = setInterval(() => {
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+      setCurrentLoadingMessage(randomMessage)
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [suggestionState])
+
+  // Typewriter effect for loading messages
+  useEffect(() => {
+    if (!currentLoadingMessage) {
+      setDisplayedMessage('')
+      return
+    }
+
+    let currentIndex = 0
+    setDisplayedMessage('')
+
+    const typingInterval = setInterval(() => {
+      if (currentIndex <= currentLoadingMessage.length) {
+        setDisplayedMessage(currentLoadingMessage.slice(0, currentIndex))
+        currentIndex++
+      } else {
+        clearInterval(typingInterval)
+      }
+    }, 30) // Type one character every 30ms
+
+    return () => clearInterval(typingInterval)
+  }, [currentLoadingMessage])
 
   // Polling for suggestion job
   useEffect(() => {
@@ -316,6 +363,12 @@ export default function FocusPage() {
             className="animate-pulse"
           />
           <p className="mt-4 text-muted-foreground text-center max-w-md">Generating your tasks... This may take a moment.</p>
+          {displayedMessage && (
+            <p className="mt-2 text-sm text-muted-foreground/70 italic text-center max-w-md min-h-[20px]">
+              {displayedMessage}
+              <span className="animate-pulse">|</span>
+            </p>
+          )}
         </div>
       )}
 
