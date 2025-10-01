@@ -27,19 +27,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <header className="bg-white mt-2">
+        <div className="py-4 h-16 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="hover:opacity-80 transition-opacity">
-            <Image 
-              src="/logo.png" 
-              alt="Mimir" 
-              width={40} 
-              height={40}
-              priority
-              className="object-contain"
-            />
-          </Link>
+          <div className="pl-6 min-w-[220px]">
+            <Link href="/" className="hover:opacity-80 transition-opacity">
+              <Image 
+                src="/logo.png" 
+                alt="Mimir" 
+                width={40} 
+                height={40}
+                priority
+                className="object-contain"
+              />
+            </Link>
+          </div>
           
           {/* Circular Navigation Buttons */}
           <nav className="flex items-center gap-4">
@@ -64,11 +66,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           
           {/* Profile Menu */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 pr-6 min-w-[220px]">
             <HealthBadge />
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-400 transition-colors">
-              <span className="text-xs font-medium">U</span>
-            </div>
           </div>
         </div>
       </header>

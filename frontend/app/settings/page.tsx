@@ -92,8 +92,8 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold mb-2">Configuration</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-3xl font-semibold mb-2 text-center">Configuration</h1>
+        <p className="text-muted-foreground text-center">
           Manage your connected services to pull tasks and information from multiple sources.
         </p>
       </div>

@@ -36,7 +36,7 @@ export function CircularNavButton({ variant, active, onClick }: CircularNavButto
         return { width: 30, height: 30 }
       default:
         return { width: 32, height: 32 }
-    }
+    } 
   }
 
   const iconSize = getIconSize()

@@ -139,41 +139,31 @@ export default function GraphPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold mb-4">Work Tree</h1>
+        <h1 className="text-3xl font-semibold mb-4 text-center">Work Tree</h1>
         
         {/* Toolbar */}
         <div className="flex items-center gap-4 mb-6">
-          <button className="p-2 border rounded-lg hover:bg-accent transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46 22,3"/>
-            </svg>
-          </button>
           <button 
             onClick={() => setFilters(prev => ({ ...prev, showCompleted: !prev.showCompleted }))}
             className={`px-3 py-1 text-sm rounded transition-colors ${
               filters.showCompleted 
-                ? 'bg-green-100 text-green-800 border border-green-200' 
+                ? 'bg-green-100 text-green-800 border border-green-400' 
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
             }`}
           >
-            ✓ Completed ({tasks.filter(t => t.status === 'done').length})
+            ✅ Completed ({tasks.filter(t => t.status === 'done').length})
           </button>
           <button 
             onClick={() => setFilters(prev => ({ ...prev, showTodo: !prev.showTodo }))}
             className={`px-3 py-1 text-sm rounded transition-colors ${
               filters.showTodo 
-                ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                ? 'bg-yellow-100 text-yellow-800 border border-yellow-400' 
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
             }`}
           >
-            ○ Future ({tasks.filter(t => t.status !== 'done').length})
+            📋 TODO ({tasks.filter(t => t.status !== 'done').length})
           </button>
           <div className="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M3 7h18"/>
-              <path d="M3 12h18"/>
-              <path d="M3 17h18"/>
-            </svg>
             <span className="text-sm text-muted-foreground">This month ({filteredTasks.length} tasks)</span>
           </div>
         </div>
