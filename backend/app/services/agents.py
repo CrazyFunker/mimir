@@ -214,7 +214,7 @@ Created At: {task.created_at}
     try:
         # Newer API: kickoff(); older maybe still supports run()
         if hasattr(crew, "kickoff"):
-            result = crew.kickoff(inputs={})  # type: ignore
+            result = crew.kickoff()  # type: ignore
         else:  # legacy fallback
             result = crew.run()  # type: ignore
     except Exception:  # orchestration failure
@@ -307,7 +307,7 @@ Your response should only contain the JSON array.
     # Run the generation and extract JSON
     print("[DEBUG] Running crew.kickoff()")
     try:
-        result = crew.kickoff(inputs={})
+        result = crew.kickoff()
         print(f"[DEBUG] Crew result type: {type(result)}")
         print(f"[DEBUG] Crew result: {result}")
     except Exception as e:
