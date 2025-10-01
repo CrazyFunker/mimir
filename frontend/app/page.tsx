@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { getTasks, completeTask as apiCompleteTask, undoTask as apiUndoTask, suggestTasks, getSuggestJobStatus } from '@/lib/api'
 import { Loader } from '@/components/loader'
 import { TaskCard } from '@/components/task-card'
@@ -304,41 +305,56 @@ export default function FocusPage() {
         <h1 className="text-3xl font-semibold text-center">Today</h1>
       </div>
 
-      {/* Centered Tasks Section */}
-      <div className="flex justify-center pt-8">
-        <div className="w-full max-w-6xl">
-          <section>
-            <div className="flex justify-center">
-              <div className="flex gap-4 flex-wrap justify-center">
-              {tasks.today.length > 0 ? (
-                tasks.today.map((task, index) => (
-                  <div key={task.id} className="w-80">
-                    <TaskCard 
-                      title={task.title}
-                      description={task.description}
-                      externalRef={task.external?.ref}
-                      selected={selectedTaskIndex === index}
-                      onClick={() => handleTaskSelect(task)}
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nothing urgent today</p>
-                  <button 
-                    onClick={handleGenerateSuggestions}
-                    disabled={suggestionState === 'loading' || suggestionState === 'polling'}
-                    className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                  >
-                    {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
-                  </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
+      {/* Show robots thinking while generating tasks */}
+      {(suggestionState === 'loading' || suggestionState === 'polling') && (
+        <div className="flex flex-col items-center justify-center py-16">
+          <Image 
+            src="/robotsThinking.webp" 
+            alt="Generating tasks" 
+            width={300} 
+            height={300}
+            className="animate-pulse"
+          />
+          <p className="mt-4 text-muted-foreground text-center max-w-md">Generating your tasks... This may take a moment.</p>
         </div>
-      </div>
+      )}
+
+      {/* Centered Tasks Section */}
+      {!(suggestionState === 'loading' || suggestionState === 'polling') && (
+        <div className="flex justify-center pt-8">
+          <div className="w-full max-w-6xl">
+            <section>
+              <div className="flex justify-center">
+                <div className="flex gap-4 flex-wrap justify-center">
+                {tasks.today.length > 0 ? (
+                  tasks.today.map((task, index) => (
+                    <div key={task.id} className="w-80">
+                      <TaskCard 
+                        title={task.title}
+                        description={task.description}
+                        externalRef={task.external?.ref}
+                        selected={selectedTaskIndex === index}
+                        onClick={() => handleTaskSelect(task)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Nothing urgent today</p>
+                    <button 
+                      onClick={handleGenerateSuggestions}
+                      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Generate suggestions
+                    </button>
+                  </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
 
       {/* Task Detail Modal */}
       {selectedTask && (
