@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Image from 'next/image'
 
 interface CircularNavButtonProps {
   variant: 'focus' | 'graph' | 'settings'
@@ -12,37 +13,33 @@ export function CircularNavButton({ variant, active, onClick }: CircularNavButto
   const baseClasses = "w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all duration-300 hover:shadow-lg hover:border-4 focus:outline-none focus:ring-2 focus:ring-ring"
   const activeClasses = active ? "border-foreground bg-accent" : "border-muted hover:border-foreground"
   
-  const renderIcon = () => {
+  const getIconPath = () => {
     switch (variant) {
       case 'focus':
-        return (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="3" fill="currentColor" />
-          </svg>
-        )
+        return '/focus.png'
       case 'graph':
-        return (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            {/* Tree structure with three terminals */}
-            <line x1="12" y1="6" x2="12" y2="18" />
-            <circle cx="12" cy="6" r="2" fill="currentColor" />
-            <circle cx="8" cy="18" r="2" fill="currentColor" />
-            <circle cx="16" cy="18" r="2" fill="currentColor" />
-            <line x1="12" y1="14" x2="8" y2="18" />
-            <line x1="12" y1="14" x2="16" y2="18" />
-          </svg>
-        )
+        return '/graph.png'
       case 'settings':
-        return (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" />
-            <path d="m19.07 4.93-4.24 4.24m0 5.66 4.24 4.24M4.93 4.93l4.24 4.24m0 5.66-4.24 4.24" />
-          </svg>
-        )
+        return '/settings.png'
+      default:
+        return '/focus.png'
     }
   }
+
+  const getIconSize = () => {
+    switch (variant) {
+      case 'focus':
+        return { width: 32, height: 32 }
+      case 'graph':
+        return { width: 42, height: 42 }
+      case 'settings':
+        return { width: 30, height: 30 }
+      default:
+        return { width: 32, height: 32 }
+    }
+  }
+
+  const iconSize = getIconSize()
 
   return (
     <button 
@@ -51,7 +48,13 @@ export function CircularNavButton({ variant, active, onClick }: CircularNavButto
       aria-label={`Navigate to ${variant}`}
       type="button"
     >
-      {renderIcon()}
+      <Image 
+        src={getIconPath()} 
+        alt={`${variant} icon`}
+        width={iconSize.width}
+        height={iconSize.height}
+        className="object-contain"
+      />
     </button>
   )
 }
