@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { CircularNavButton } from '@/components/circular-nav-button'
 import { HealthBadge } from '@/components/health-badge'
@@ -29,8 +30,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="border-b bg-white">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="text-xl font-bold text-foreground hover:text-muted-foreground transition-colors">
-            Mimir
+          <Link href="/" className="hover:opacity-80 transition-opacity">
+            <Image 
+              src="/logo.png" 
+              alt="Mimir" 
+              width={40} 
+              height={40}
+              priority
+              className="object-contain"
+            />
           </Link>
           
           {/* Circular Navigation Buttons */}

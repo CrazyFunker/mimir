@@ -16,7 +16,7 @@ export function TaskCard({ title, description, externalRef, selected, onClick }:
   
   return (
     <div 
-      className={`p-4 border rounded-lg cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all group bg-card ${selectedStyles}`}
+      className={`p-4 border rounded-lg cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all group bg-card h-32 flex flex-col ${selectedStyles}`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between">

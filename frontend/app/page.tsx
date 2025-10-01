@@ -82,7 +82,7 @@ export default function FocusPage() {
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<TasksByHorizon>(mockTasks)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [selectedTaskIndex, setSelectedTaskIndex] = useState(0)
+  const [selectedTaskIndex, setSelectedTaskIndex] = useState(-1)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showUndo, setShowUndo] = useState(false)
   const [lastCompletedTask, setLastCompletedTask] = useState<Task | null>(null)
@@ -90,7 +90,7 @@ export default function FocusPage() {
   const [suggestionJobId, setSuggestionJobId] = useState<string | null>(null)
 
   // Get all visible tasks in order for keyboard navigation
-  const allTasks = [...tasks.today.slice(0, 3), ...tasks.week.slice(0, 3), ...tasks.month.slice(0, 3)]
+  const allTasks = tasks.today
 
   const loadTasks = useCallback(async () => {
     // No need for cancelled flag logic with useCallback if dependencies are correct
@@ -145,16 +145,22 @@ export default function FocusPage() {
       }
 
       switch (event.key) {
-        case 'ArrowUp':
-          setSelectedTaskIndex(prev => Math.max(0, prev - 1))
+        case 'ArrowLeft':
+          setSelectedTaskIndex(prev => {
+            if (prev === -1) return 0
+            return Math.max(0, prev - 1)
+          })
           event.preventDefault()
           break
-        case 'ArrowDown':
-          setSelectedTaskIndex(prev => Math.min(allTasks.length - 1, prev + 1))
+        case 'ArrowRight':
+          setSelectedTaskIndex(prev => {
+            if (prev === -1) return 0
+            return Math.min(allTasks.length - 1, prev + 1)
+          })
           event.preventDefault()
           break
         case 'Enter':
-          if (allTasks[selectedTaskIndex]) {
+          if (selectedTaskIndex !== -1 && allTasks[selectedTaskIndex]) {
             if (event.metaKey || event.ctrlKey) {
               handleTaskComplete(allTasks[selectedTaskIndex])
             } else {
@@ -292,104 +298,41 @@ export default function FocusPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <h1 className="text-3xl font-semibold mb-8">Focus</h1>
-      
-      {/* Today Section */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Today</h2>
-        <div className="space-y-3">
-          {tasks.today.length > 0 ? (
-            tasks.today.slice(0, 3).map((task, index) => (
-              <TaskCard 
-                key={task.id}
-                title={task.title}
-                description={task.description}
-                externalRef={task.external?.ref}
-                selected={selectedTaskIndex === index}
-                onClick={() => handleTaskSelect(task)}
-              />
-            ))
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Nothing urgent today</p>
-              <button 
-                onClick={handleGenerateSuggestions}
-                disabled={suggestionState === 'loading' || suggestionState === 'polling'}
-                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-              >
-                {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
-              </button>
+    <div className="flex justify-center min-h-screen px-4 pt-32">
+      <div className="w-full max-w-6xl">
+        {/* Today Section */}
+        <section>
+          <h1 className="text-3xl font-semibold mb-8 text-center">Today</h1>
+          <div className="flex justify-center">
+            <div className="flex gap-4 flex-wrap justify-center">
+              {tasks.today.length > 0 ? (
+                tasks.today.map((task, index) => (
+                  <div key={task.id} className="w-80">
+                    <TaskCard 
+                      title={task.title}
+                      description={task.description}
+                      externalRef={task.external?.ref}
+                      selected={selectedTaskIndex === index}
+                      onClick={() => handleTaskSelect(task)}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Nothing urgent today</p>
+                  <button 
+                    onClick={handleGenerateSuggestions}
+                    disabled={suggestionState === 'loading' || suggestionState === 'polling'}
+                    className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </section>
-
-      {/* This Week Section */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">This week</h2>
-        <div className="space-y-3">
-          {tasks.week.length > 0 ? (
-            tasks.week.slice(0, 3).map((task, index) => {
-              const globalIndex = tasks.today.slice(0, 3).length + index
-              return (
-                <TaskCard 
-                  key={task.id}
-                  title={task.title}
-                  description={task.description}
-                  externalRef={task.external?.ref}
-                  selected={selectedTaskIndex === globalIndex}
-                  onClick={() => handleTaskSelect(task)}
-                />
-              )
-            })
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No tasks planned for this week</p>
-              <button 
-                onClick={handleGenerateSuggestions}
-                disabled={suggestionState === 'loading' || suggestionState === 'polling'}
-                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-              >
-                {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* This Month Section */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">This month</h2>
-        <div className="space-y-3">
-          {tasks.month.length > 0 ? (
-            tasks.month.slice(0, 3).map((task, index) => {
-              const globalIndex = tasks.today.slice(0, 3).length + tasks.week.slice(0, 3).length + index
-              return (
-                <TaskCard 
-                  key={task.id}
-                  title={task.title}
-                  description={task.description}
-                  externalRef={task.external?.ref}
-                  selected={selectedTaskIndex === globalIndex}
-                  onClick={() => handleTaskSelect(task)}
-                />
-              )
-            })
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No long-term tasks set</p>
-              <button 
-                onClick={handleGenerateSuggestions}
-                disabled={suggestionState === 'loading' || suggestionState === 'polling'}
-                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-              >
-                {suggestionState === 'loading' || suggestionState === 'polling' ? 'Generating...' : 'Generate suggestions'}
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
 
       {/* Task Detail Modal */}
       {selectedTask && (
