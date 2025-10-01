@@ -92,6 +92,7 @@ export default function FocusPage() {
   const [suggestionJobId, setSuggestionJobId] = useState<string | null>(null)
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState('')
   const [displayedMessage, setDisplayedMessage] = useState('')
+  const [isInitialized, setIsInitialized] = useState(false)
 
   // Get all visible tasks in order for keyboard navigation
   const allTasks = tasks.today
@@ -120,10 +121,24 @@ export default function FocusPage() {
     }
   }, [])
 
+  // Check for ongoing suggestion job on mount
+  useEffect(() => {
+    const storedJobId = localStorage.getItem('suggestionJobId')
+    const storedState = localStorage.getItem('suggestionState') as 'idle' | 'loading' | 'polling' | 'error' | null
+    
+    if (storedJobId && storedState && (storedState === 'loading' || storedState === 'polling')) {
+      setSuggestionJobId(storedJobId)
+      setSuggestionState('polling') // Always use polling state on restore
+    }
+    
+    setIsInitialized(true)
+  }, [])
+
   // Initial load from backend
   useEffect(() => {
+    if (!isInitialized) return
     loadTasks()
-  }, [loadTasks])
+  }, [loadTasks, isInitialized])
 
   // Keyboard navigation
   useEffect(() => {
@@ -231,6 +246,19 @@ export default function FocusPage() {
     return () => clearInterval(typingInterval)
   }, [currentLoadingMessage])
 
+  // Persist suggestion state to localStorage
+  useEffect(() => {
+    if (suggestionJobId) {
+      localStorage.setItem('suggestionJobId', suggestionJobId)
+    } else {
+      localStorage.removeItem('suggestionJobId')
+    }
+  }, [suggestionJobId])
+
+  useEffect(() => {
+    localStorage.setItem('suggestionState', suggestionState)
+  }, [suggestionState])
+
   // Polling for suggestion job
   useEffect(() => {
     if (suggestionState !== 'polling' || !suggestionJobId) return
@@ -241,6 +269,8 @@ export default function FocusPage() {
         if (job.status === 'completed') {
           setSuggestionState('idle')
           setSuggestionJobId(null)
+          localStorage.removeItem('suggestionJobId')
+          localStorage.removeItem('suggestionState')
           clearInterval(interval)
           // Refresh tasks now that the job is done
           loadTasks()
@@ -248,6 +278,8 @@ export default function FocusPage() {
           console.error('Suggestion job failed:', job)
           setSuggestionState('error')
           setSuggestionJobId(null)
+          localStorage.removeItem('suggestionJobId')
+          localStorage.removeItem('suggestionState')
           clearInterval(interval)
         }
         // If 'running', continue polling
@@ -255,6 +287,8 @@ export default function FocusPage() {
         console.error('Failed to poll for suggestion job status:', error)
         setSuggestionState('error')
         setSuggestionJobId(null)
+        localStorage.removeItem('suggestionJobId')
+        localStorage.removeItem('suggestionState')
         clearInterval(interval)
       }
     }, 2000) // Poll every 2 seconds
@@ -341,7 +375,7 @@ export default function FocusPage() {
     setSelectedTask(null)
   }
 
-  if (loading) {
+  if (loading || !isInitialized) {
     return <Loader />
   }
 
