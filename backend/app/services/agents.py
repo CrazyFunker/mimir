@@ -90,24 +90,30 @@ def _crew_result_to_str(result: Any) -> str:
     return str(result)
 
 
-def _extract_json_like(s: str) -> Optional[dict]:
-    """Attempt to extract the first JSON object from a string.
-    Returns dict or None."""
+def _extract_json_like(s: str) -> Optional[Dict | list]:
+    """Attempt to extract JSON (object or array) from a string.
+    Returns dict, list, or None."""
     if not s:
         return None
+    
+    # Strip markdown code fences (```json ... ``` or ``` ... ```)
+    s = re.sub(r'```(?:json)?\s*', '', s).strip()
+    
     # Quick exact parse first
     try:
         return json.loads(s)
     except Exception:
         pass
-    # Fallback: find {...} substring greedily but balanced enough
-    match = re.search(r"\{[\s\S]*\}", s)
-    if match:
-        snippet = match.group(0)
-        try:
-            return json.loads(snippet)
-        except Exception:
-            return None
+    
+    # Fallback: find {...} or [...] substring
+    for pattern in [r"\{[\s\S]*\}", r"\[[\s\S]*\]"]:
+        match = re.search(pattern, s)
+        if match:
+            snippet = match.group(0)
+            try:
+                return json.loads(snippet)
+            except Exception:
+                continue
     return None
 
 
@@ -343,4 +349,3 @@ Your response should only contain the JSON array.
     
     print(f"[DEBUG] Returning {len(tasks)} generated tasks")
     return tasks
-
